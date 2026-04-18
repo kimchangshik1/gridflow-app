@@ -11,6 +11,7 @@ from app.db.order_manager import (
 )
 from app.exchange.upbit_client import UpbitClient
 from app.auth.dependencies import get_current_user
+from app.core.config import DB_URL
 from sqlalchemy import select
 
 router = APIRouter()
@@ -86,7 +87,7 @@ def get_balances(user=Depends(get_current_user)):
     # DRY_RUN 계정 → 샌드박스 잔고 반환
     if user.get("is_dry_run"):
         try:
-            conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+            conn = psycopg2.connect(DB_URL)
             cur = conn.cursor()
             cur.execute(
                 "INSERT INTO sandbox_balances (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING",
@@ -132,7 +133,7 @@ def get_positions(user=Depends(get_current_user)):
     if user.get("is_dry_run"):
         import psycopg2, requests as req2
         try:
-            conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+            conn = psycopg2.connect(DB_URL)
             cur = conn.cursor()
             sql = (
                 "SELECT symbol, "
@@ -278,7 +279,7 @@ def get_positions(user=Depends(get_current_user)):
     # 그리드 전략 BUY_FILLED 포지션 합산
     try:
         import psycopg2 as pg2
-        conn2 = pg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+        conn2 = pg2.connect(DB_URL)
         cur2 = conn2.cursor()
         cur2.execute("""
             SELECT go.symbol,
@@ -360,7 +361,7 @@ def create_order(req: OrderRequest, user=Depends(get_current_user)):
         import psycopg2
         user_id = user["user_id"]
         try:
-            conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+            conn = psycopg2.connect(DB_URL)
             cur = conn.cursor()
             cur.execute("SELECT krw_balance FROM sandbox_balances WHERE user_id = %s", (user_id,))
             row = cur.fetchone()
@@ -422,7 +423,7 @@ def list_orders(user=Depends(get_current_user), symbol: Optional[str] = None, st
     if user.get("is_dry_run"):
         import psycopg2
         try:
-            conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+            conn = psycopg2.connect(DB_URL)
             cur = conn.cursor()
             q = "SELECT id, symbol, side, price, amount_krw, status, note, created_at, updated_at FROM sandbox_orders WHERE user_id = %s"
             params = [user["user_id"]]
@@ -476,7 +477,7 @@ def cancel_order(order_id: int, user=Depends(get_current_user)):
     if user.get("is_dry_run"):
         import psycopg2
         try:
-            conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+            conn = psycopg2.connect(DB_URL)
             cur = conn.cursor()
             cur.execute(
                 "UPDATE sandbox_orders SET status='CANCELLED', updated_at=NOW() WHERE id=%s AND user_id=%s AND status NOT IN ('CANCELLED')",
@@ -533,7 +534,7 @@ def post_activity_log(req: dict, user=Depends(get_current_user)):
     """활동 로그 저장"""
     import psycopg2 as pg2
     try:
-        conn = pg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+        conn = pg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO activity_logs (user_id, event_type, symbol, exchange, side, status, status_ko, side_ko, strategy_type, price, amount_krw)
@@ -565,7 +566,7 @@ def get_activity(user=Depends(get_current_user), limit: int = 50):
     import psycopg2 as pg2
     import json
     try:
-        conn = pg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+        conn = pg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("""
             SELECT event_type, symbol, exchange, side, side_ko, status, status_ko, strategy_type, price, amount_krw, created_at
@@ -649,7 +650,7 @@ def health():
 @router.post("/activity/summary")
 def add_activity_summary(req: ActivitySummaryRequest, user=Depends(get_current_user)):
     import psycopg2
-    conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+    conn = psycopg2.connect(DB_URL)
     cur = conn.cursor()
     try:
         cur.execute(

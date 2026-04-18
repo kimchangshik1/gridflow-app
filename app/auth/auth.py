@@ -3,16 +3,10 @@ import secrets
 import psycopg2
 from datetime import datetime, timezone, timedelta
 from typing import Optional
-
-DB_CONFIG = {
-    "host": "127.0.0.1",
-    "dbname": "upbit_bot",
-    "user": "tradingbot",
-    "password": "upbit1234"
-}
+from app.core.config import DB_URL
 
 def get_conn():
-    return psycopg2.connect(**DB_CONFIG)
+    return psycopg2.connect(DB_URL)
 
 def verify_login(username: str, password: str) -> Optional[dict]:
     """아이디/비밀번호 검증 → 성공시 유저 정보 반환"""

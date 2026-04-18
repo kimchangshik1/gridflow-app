@@ -2,21 +2,15 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from app.auth.dependencies import get_current_user
+from app.core.config import DB_URL
 from app.strategy.grid_engine import GridEngine
 import psycopg2
 
 router = APIRouter()
 engine = GridEngine()
 
-DB_CONFIG = {
-    "host": "127.0.0.1",
-    "dbname": "upbit_bot",
-    "user": "tradingbot",
-    "password": "upbit1234"
-}
-
 def get_conn():
-    return psycopg2.connect(**DB_CONFIG)
+    return psycopg2.connect(DB_URL)
 
 
 class GridStrategyRequest(BaseModel):

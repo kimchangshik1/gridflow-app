@@ -2,11 +2,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.strategy.backtest_engine import run_grid_backtest
+from app.core.config import DB_URL
 import psycopg2
 
 router = APIRouter()
-
-DB_CONFIG = {"host":"127.0.0.1","dbname":"upbit_bot","user":"tradingbot","password":"upbit1234"}
 
 class BacktestRequest(BaseModel):
     symbol: str
@@ -35,7 +34,7 @@ def backtest_grid(req: BacktestRequest, user=Depends(get_current_user)):
     if "error" in result:
         raise HTTPException(500, result["error"])
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO backtest_results
@@ -57,7 +56,7 @@ def backtest_grid(req: BacktestRequest, user=Depends(get_current_user)):
 
 @router.get("/history")
 def backtest_history(user=Depends(get_current_user)):
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(DB_URL)
     cur = conn.cursor()
     cur.execute("""
         SELECT id, symbol, period_days, base_price, range_pct, grid_count,

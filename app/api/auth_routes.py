@@ -6,6 +6,7 @@ from app.auth.auth import (
     get_all_users, create_user, create_guest_user, delete_user, deactivate_user,
     set_dry_run, get_user_dry_run
 )
+from app.core.config import DB_URL
 import bcrypt
 import psycopg2
 import re
@@ -22,7 +23,7 @@ _ACCOUNT_LOCK_DURATION = timedelta(minutes=30)    # 임계치 초과 시 잠금 
 
 def _check_lockout(username: str) -> Optional[str]:
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute(
             "SELECT login_locked_until FROM users WHERE username = %s AND is_guest = FALSE",
@@ -45,7 +46,7 @@ def _check_lockout(username: str) -> Optional[str]:
 
 def _record_failure(username: str):
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute(
             "SELECT login_fail_count, login_fail_window_start FROM users WHERE username = %s AND is_guest = FALSE",
@@ -90,7 +91,7 @@ def _record_failure(username: str):
 
 def _record_success(username: str):
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute(
             "UPDATE users SET login_fail_count = 0, login_locked_until = NULL, login_fail_window_start = NULL WHERE username = %s",
@@ -121,7 +122,7 @@ def _get_client_ip(request: Request) -> str:
 
 def _check_ip_lockout(ip: str) -> Optional[str]:
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("SELECT locked_until FROM ip_login_failures WHERE ip = %s", (ip,))
         row = cur.fetchone()
@@ -141,7 +142,7 @@ def _check_ip_lockout(ip: str) -> Optional[str]:
 
 def _record_ip_failure(ip: str):
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("SELECT fail_count, fail_window_start FROM ip_login_failures WHERE ip = %s", (ip,))
         row = cur.fetchone()
@@ -187,7 +188,7 @@ def _record_ip_failure(ip: str):
 def _clear_ip_failures(ip: str):
     # 관리자 수동 초기화용 — 성공 로그인 시 호출하지 않음
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("""
             UPDATE ip_login_failures
@@ -235,13 +236,6 @@ def _validate_password(pw: str) -> Optional[str]:
     return None
 
 router = APIRouter()
-
-DB_CONFIG = {
-    "host": "127.0.0.1",
-    "dbname": "upbit_bot",
-    "user": "tradingbot",
-    "password": "upbit1234"
-}
 
 class LoginRequest(BaseModel):
     username: str
@@ -338,7 +332,7 @@ def logout_guest(
     if not user.get("is_guest"):
         return {"success": True, "guest": False}
 
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(DB_URL)
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM user_sessions WHERE user_id = %s OR token = %s", (user["user_id"], token))
@@ -428,7 +422,7 @@ def delete_user_keys(user_id: int, session: Optional[str] = Cookie(None)):
     if not user or not user.get("is_admin"):
         raise HTTPException(403, "관리자 권한이 필요합니다")
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("DELETE FROM bot_configs WHERE user_id = %s", (user_id,))
         deleted = cur.rowcount

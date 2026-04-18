@@ -9,6 +9,7 @@ from app.db.order_manager import create_planned_order, cancel_planned_order
 from app.exchange.bithumb_client import BithumbClient
 from app.auth.dependencies import get_current_user
 from app.core.crypto import decrypt
+from app.core.config import DB_URL
 from sqlalchemy import select
 
 router = APIRouter()
@@ -147,12 +148,7 @@ def get_positions(user=Depends(get_current_user)):
     try:
         import psycopg2 as pg2
 
-        conn2 = pg2.connect(
-            host="127.0.0.1",
-            dbname="upbit_bot",
-            user="tradingbot",
-            password="upbit1234"
-        )
+        conn2 = pg2.connect(DB_URL)
         cur2 = conn2.cursor()
         cur2.execute(
             '''
@@ -249,7 +245,7 @@ def create_order(req: OrderRequest, user=Depends(get_current_user)):
         _side = req.side.upper()
         user_id = user["user_id"]
         try:
-            conn = psycopg2.connect(host="127.0.0.1", dbname="upbit_bot", user="tradingbot", password="upbit1234")
+            conn = psycopg2.connect(DB_URL)
             cur = conn.cursor()
             cur.execute("SELECT krw_balance FROM sandbox_balances WHERE user_id = %s", (user_id,))
             row = cur.fetchone()

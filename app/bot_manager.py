@@ -1,5 +1,6 @@
 import asyncio
 import psycopg2
+from app.core.config import DB_URL
 from app.core.crypto import decrypt
 from app.exchange.upbit_client import UpbitClient
 from app.exchange.bithumb_client import BithumbClient
@@ -8,18 +9,11 @@ from app.strategy.bithumb_order_gateway import BithumbOrderGateway
 from app.exchange.bithumb_reconciler import BithumbReconciler
 from app.exchange.reconciler import Reconciler
 
-DB_CONFIG = {
-    "host": "127.0.0.1",
-    "dbname": "upbit_bot",
-    "user": "tradingbot",
-    "password": "upbit1234"
-}
-
 
 def get_active_users_with_keys():
     """DB에서 API 키가 있는 활성 유저 목록 반환"""
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         cur.execute("""
             SELECT u.id, u.username,
