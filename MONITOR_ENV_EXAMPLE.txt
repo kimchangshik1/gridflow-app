@@ -1,0 +1,33 @@
+OrderLens Ops API 키 입력 예시
+
+현재 모니터는 환경변수가 아니라 아래 파일을 사용합니다.
+
+입력 위치:
+/home/ubuntu/upbit_bot/monitor_config.json
+
+웹 입력 화면:
+http://서버주소:8010/monitor/setup
+
+필드명:
+- exchange: 거래소 선택값입니다. "upbit" 또는 "bithumb" 중 하나를 입력합니다.
+- api_key: 선택한 거래소의 API Key를 입력합니다.
+- api_secret: 선택한 거래소의 API Secret을 입력합니다.
+
+Upbit 예시:
+{
+  "exchange": "upbit",
+  "api_key": "UPBIT_API_KEY_HERE",
+  "api_secret": "UPBIT_API_SECRET_HERE"
+}
+
+Bithumb 예시:
+{
+  "exchange": "bithumb",
+  "api_key": "BITHUMB_API_KEY_HERE",
+  "api_secret": "BITHUMB_API_SECRET_HERE"
+}
+
+주의:
+- 위 값은 예시용 placeholder입니다.
+- 실제 API Key / Secret 값을 이 예시 파일에 저장하지 마세요.
+- 실제 실행 시에는 /monitor/setup 화면에서 입력하거나 monitor_config.json에 같은 필드명으로 저장합니다.

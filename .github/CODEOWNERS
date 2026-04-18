@@ -1,0 +1,5 @@
+* @repo-admin
+
+.github/ @repo-admin
+app/ @repo-admin
+ops/ @repo-admin

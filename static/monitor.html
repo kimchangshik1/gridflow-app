@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OrderLens Ops</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1010;
+      --surface: #141917;
+      --line: #242c29;
+      --line-soft: #1e2521;
+      --muted: #7e8e89;
+      --text: #e8f0ec;
+      --soft: #b8c4be;
+      --accent: #5ecb96;
+      --warn: #deb84a;
+      --bad: #d96060;
+    }
+
+    /* hidden 속성이 author CSS display 값에 눌리지 않도록 강제 적용 */
+    [hidden] { display: none !important; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      width: min(1380px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 22px 0 48px;
+    }
+
+    /* ─── Ops Status Bar ─────────────────────────────────────── */
+    .ops-bar {
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      height: 46px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .ops-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-right: 18px;
+    }
+
+    .ops-sep {
+      width: 1px;
+      height: 16px;
+      background: var(--line);
+      margin: 0 14px;
+      flex-shrink: 0;
+    }
+
+    .ops-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+
+    .ops-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .ops-dot.ok  { background: var(--accent); }
+    .ops-dot.warn { background: var(--warn); }
+    .ops-dot.bad  { background: var(--bad); }
+
+    #ops-status-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+    #ops-status-label.ok   { color: var(--accent); }
+    #ops-status-label.warn { color: var(--warn); }
+    #ops-status-label.bad  { color: var(--bad); }
+
+    #lastUpdated {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .freshness-badge {
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .freshness-badge.ok {
+      background: rgba(94, 203, 150, 0.08);
+      border-color: rgba(94, 203, 150, 0.22);
+      color: var(--accent);
+    }
+    .freshness-badge.stale {
+      background: rgba(222, 184, 74, 0.08);
+      border-color: rgba(222, 184, 74, 0.24);
+      color: var(--warn);
+    }
+
+    /* ops-error-slot: Pro+ 전용 래퍼. hidden 제거 시 flex 레이아웃으로 복원 */
+    #ops-error-slot {
+      display: flex;
+      align-items: center;
+      flex: 0 1 320px;
+      max-width: min(32vw, 320px);
+      min-width: 0;
+    }
+
+    #latest-error-text {
+      font-size: 12px;
+      color: var(--muted);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #latest-error-text.has-error { color: var(--bad); }
+
+    .ops-badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      background: rgba(94, 203, 150, 0.1);
+      color: var(--accent);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .ops-refresh-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border: 1px solid #3a4540;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--soft);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+      margin-left: 4px;
+    }
+    .ops-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ─── Summary Cards ──────────────────────────────────────── */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .sum-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px 12px;
+    }
+
+    .sum-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .sum-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .sum-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .sum-card.is-bad .sum-value { color: var(--bad); }
+    .sum-card.is-ok  .sum-value { color: var(--accent); }
+
+    /* ─── Exchange Status ────────────────────────────────────── */
+    .exch-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .exch-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .exch-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      min-width: 44px;
+      flex-shrink: 0;
+    }
+
+    .exch-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .exch-dot.ok   { background: var(--accent); }
+    .exch-dot.warn { background: var(--warn); }
+    .exch-dot.bad  { background: var(--bad); }
+
+    .exch-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .exch-label.ok   { color: var(--accent); }
+    .exch-label.warn { color: var(--warn); }
+    .exch-label.bad  { color: var(--bad); }
+
+    .exch-detail {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    /* ─── Filters ────────────────────────────────────────────── */
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 9px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .filter-note {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.75;
+      margin-right: auto;
+    }
+
+    .filters label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+
+    .filters select {
+      background: var(--bg);
+      border: 1px solid #3a4540;
+      border-radius: 6px;
+      color: var(--text);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .filters select:focus {
+      border-color: rgba(94, 203, 150, 0.45);
+    }
+
+    .filters option {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    /* ─── Main: vertical stack ───────────────────────────────── */
+    main {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px 18px 0;
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--soft);
+    }
+
+    .count {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line-soft);
+      border-radius: 4px;
+      padding: 1px 7px;
+      letter-spacing: 0.2px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 300px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .orders-table-wrap { max-height: 360px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 820px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line-soft);
+      text-align: left;
+      font-size: 13px;
+      line-height: 1.5;
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #101413;
+      color: #8fa09a;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      padding: 9px 12px;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--line);
+    }
+
+    td {
+      color: #b0bfb9;
+      font-weight: 500;
+      padding: 10px 12px;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    tbody tr:hover td {
+      background: rgba(255,255,255,0.032);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #8fa09a;
+      font-size: 12px;
+    }
+
+    .status-ok       { color: var(--accent); font-weight: 700; }
+    .status-filled   { color: #6cd4a4; font-weight: 700; }
+    .status-warn     { color: var(--warn); font-weight: 700; }
+    .status-bad      { color: var(--bad); font-weight: 700; }
+    .status-failed   { color: #df6464; font-weight: 700; }
+    .status-cancelled { color: var(--warn); font-weight: 700; }
+
+    .empty {
+      min-height: 96px;
+      padding: 22px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(13, 16, 16, 0.34);
+      border-top: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
+      opacity: 0.78;
+    }
+
+    section:has(.empty:not([hidden])) .table-wrap {
+      display: none;
+    }
+
+    /* ─── Lite 전용 기본 상태 패널 ─────────────────────────── */
+    .lite-bar {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 0 18px;
+      height: 42px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+
+    /* 맥락용 소제목: 패널 맨 앞에 아주 약하게 */
+    .lite-bar-section {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      opacity: 0.5;
+      flex-shrink: 0;
+    }
+
+    .lite-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lite-bar-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .lite-bar-value {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .lite-bar-value.ok   { color: var(--accent); }
+    .lite-bar-value.warn { color: var(--warn); }
+    .lite-bar-value.bad  { color: var(--bad); }
+
+    .lite-bar-sep {
+      width: 1px;
+      height: 14px;
+      background: var(--line);
+      margin: 0 14px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Signature 전용 운영 인사이트 패널 ─────────────────── */
+    .sig-panel {
+      background: var(--surface);
+      border: 1px solid rgba(94, 203, 150, 0.22);
+      border-radius: 8px;
+      padding: 13px 18px 14px;
+      margin-bottom: 14px;
+    }
+
+    .sig-panel-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .sig-panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      color: var(--soft);
+    }
+
+    .sig-badge {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      background: rgba(94, 203, 150, 0.12);
+      color: var(--accent);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .sig-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px 20px;
+    }
+
+    .sig-item-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+
+    .sig-item-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .sig-item-value.ok   { color: var(--accent); }
+    .sig-item-value.warn { color: var(--warn); }
+    .sig-item-value.bad  { color: var(--bad); }
+
+    /* 오류 유형처럼 텍스트가 길 수 있는 항목 */
+    .sig-item-value.sig-err {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sig-item-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+      min-height: 14px;
+    }
+
+    /* ─── Ops-bar 우측 그룹 ─────────────────────────────────── */
+    .ops-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 960px) {
+      .summary-row { grid-template-columns: repeat(2, 1fr); }
+      .ops-bar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 8px; }
+      #ops-error-slot { flex: none; width: 100%; order: 10; }
+      .sig-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      .shell { width: calc(100% - 20px); padding-top: 14px; }
+      .exch-row { grid-template-columns: 1fr; }
+      .summary-row { grid-template-columns: repeat(2, 1fr); }
+      .sig-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- ① 운영 상태 바 -->
+    <div class="ops-bar">
+      <span class="ops-title">OrderLens Ops</span>
+      <div class="ops-sep"></div>
+      <div class="ops-status">
+        <span id="ops-dot" class="ops-dot"></span>
+        <span id="ops-status-label">확인 중</span>
+      </div>
+      <div class="ops-sep"></div>
+      <span id="lastUpdated">갱신 중…</span>
+      <div class="ops-sep"></div>
+      <span id="freshnessBadge" class="freshness-badge stale">STALE</span>
+      <!-- Pro+ 전용: 최근 오류 요약. Lite에서는 hidden -->
+      <div id="ops-error-slot" hidden>
+        <div class="ops-sep"></div>
+        <span id="latest-error-text">최근 오류 없음</span>
+      </div>
+      <!-- 우측 컨트롤 그룹 -->
+      <div class="ops-right">
+        <span class="ops-badge">READ-ONLY</span>
+        <button id="refresh-btn" class="ops-refresh-btn">↻ 새로고침</button>
+        <a href="/monitor/setup" class="ops-refresh-btn">⚙ 설정</a>
+      </div>
+      <!-- health element: JS 호환용, 화면에 표시 안 함 -->
+      <div id="health" style="display:none;"></div>
+    </div>
+
+    <!-- Lite 전용 기본 상태 패널 (Pro/Signature에서는 hidden) -->
+    <div id="lite-status-bar" hidden>
+      <div class="lite-bar">
+        <span class="lite-bar-section">기본 상태</span>
+        <div class="lite-bar-sep"></div>
+        <div class="lite-bar-item">
+          <span class="lite-bar-label">운영 상태</span>
+          <span id="lite-ops-value" class="lite-bar-value">확인 중</span>
+        </div>
+        <div class="lite-bar-sep"></div>
+        <div class="lite-bar-item">
+          <span class="lite-bar-label">최근 오류</span>
+          <span id="lite-err-value" class="lite-bar-value">—</span>
+        </div>
+        <div class="lite-bar-sep"></div>
+        <div class="lite-bar-item">
+          <span class="lite-bar-label">최근 체결</span>
+          <span id="lite-fill-value" class="lite-bar-value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 요약 카드 (4개) — Pro+ 전용, Lite에서는 hidden -->
+    <div id="summary-section" class="summary-row" hidden>
+      <div class="sum-card">
+        <div class="sum-label">전체 주문</div>
+        <div id="stat-orders-total" class="sum-value">—</div>
+        <div class="sum-sub" id="stat-orders-sub">조회 기준</div>
+      </div>
+      <div class="sum-card" id="stat-filled-card">
+        <div class="sum-label">체결</div>
+        <div id="stat-filled-total" class="sum-value">—</div>
+        <div class="sum-sub">FILLED</div>
+      </div>
+      <div class="sum-card" id="stat-bad-card">
+        <div class="sum-label">취소 / 실패</div>
+        <div id="stat-bad-total" class="sum-value">—</div>
+        <div class="sum-sub">CANCELLED + FAILED</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">마지막 정상</div>
+        <div id="stat-last-ok" class="sum-value" style="font-size:16px;line-height:1.3">—</div>
+        <div class="sum-sub" id="stat-last-ok-sub">정상 이벤트 기준</div>
+      </div>
+    </div>
+
+    <!-- ③ 거래소 상태 — Pro+ 전용, Lite에서는 hidden -->
+    <div id="exch-section" class="exch-row" hidden>
+      <div class="exch-card">
+        <span class="exch-name">업비트</span>
+        <span id="exch-upbit-dot" class="exch-dot"></span>
+        <span id="exch-upbit-label" class="exch-label">확인 중</span>
+        <span id="exch-upbit-detail" class="exch-detail"></span>
+      </div>
+      <div class="exch-card">
+        <span class="exch-name">빗썸</span>
+        <span id="exch-bithumb-dot" class="exch-dot"></span>
+        <span id="exch-bithumb-label" class="exch-label">확인 중</span>
+        <span id="exch-bithumb-detail" class="exch-detail"></span>
+      </div>
+    </div>
+
+    <!-- Signature 전용 운영 인사이트 패널 (lite/pro에서는 hidden) -->
+    <div id="signature-slot" hidden>
+      <div class="sig-panel">
+        <div class="sig-panel-head">
+          <span class="sig-panel-title">운영 인사이트</span>
+          <span class="sig-badge">SIGNATURE</span>
+        </div>
+        <div class="sig-grid">
+          <div class="sig-item">
+            <div class="sig-item-label">최근 실패율</div>
+            <div id="sig-fail-rate" class="sig-item-value">—</div>
+            <div id="sig-fail-rate-sub" class="sig-item-sub">주문 기준</div>
+          </div>
+          <div class="sig-item">
+            <div class="sig-item-label">주의 거래소</div>
+            <div id="sig-worst-exch" class="sig-item-value">—</div>
+            <div id="sig-worst-exch-sub" class="sig-item-sub"></div>
+          </div>
+          <div class="sig-item">
+            <div class="sig-item-label">마지막 체결 후</div>
+            <div id="sig-last-fill" class="sig-item-value">—</div>
+            <div id="sig-last-fill-sub" class="sig-item-sub"></div>
+          </div>
+          <div class="sig-item">
+            <div class="sig-item-label">주요 오류 유형</div>
+            <div id="sig-top-err" class="sig-item-value sig-err">—</div>
+            <div id="sig-top-err-sub" class="sig-item-sub"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ 필터 -->
+    <div class="filters" aria-label="monitor filters">
+      <span class="filter-note">거래소 · 상태 필터는 모든 로그에 적용됩니다.</span>
+      <label for="exchangeFilter">거래소</label>
+      <select id="exchangeFilter">
+        <option value="">전체</option>
+        <option value="upbit">업비트</option>
+        <option value="bithumb">빗썸</option>
+      </select>
+      <label for="statusFilter">상태</label>
+      <select id="statusFilter">
+        <option value="">전체</option>
+        <option value="ok">정상 / 체결</option>
+        <option value="warn">확인 필요</option>
+        <option value="bad">오류 / 취소</option>
+      </select>
+    </div>
+
+    <!-- ⑤ 로그 세로 스택 -->
+    <main>
+
+      <section aria-labelledby="ordersTitle">
+        <div class="section-head">
+          <h2 id="ordersTitle">최근 주문</h2>
+          <div id="ordersCount" class="count">0건</div>
+        </div>
+        <div class="table-wrap orders-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>거래소</th>
+                <th>종목</th>
+                <th>구분</th>
+                <th>상태</th>
+                <th>가격</th>
+                <th>주문 금액</th>
+                <th>수량</th>
+                <th>생성 시각</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+        </div>
+        <div id="ordersEmpty" class="empty" hidden>최근 주문 없음</div>
+      </section>
+
+      <section aria-labelledby="activityTitle">
+        <div class="section-head">
+          <h2 id="activityTitle">최근 활동</h2>
+          <div id="activityCount" class="count">0건</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>이벤트</th>
+                <th>거래소</th>
+                <th>상태</th>
+                <th>종목</th>
+                <th>내용</th>
+                <th>발생 시각</th>
+              </tr>
+            </thead>
+            <tbody id="activityBody"></tbody>
+          </table>
+        </div>
+        <div id="activityEmpty" class="empty" hidden>최근 활동 없음</div>
+      </section>
+
+      <section aria-labelledby="errorsTitle">
+        <div class="section-head">
+          <h2 id="errorsTitle">오류 로그</h2>
+          <div id="errorsCount" class="count">0건</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>이벤트</th>
+                <th>거래소</th>
+                <th>상태</th>
+                <th>종목</th>
+                <th>내용</th>
+                <th>발생 시각</th>
+              </tr>
+            </thead>
+            <tbody id="errorsBody"></tbody>
+          </table>
+        </div>
+        <div id="errorsEmpty" class="empty" hidden>최근 오류 없음</div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="/static/js/monitor.js"></script>
+</body>
+</html>

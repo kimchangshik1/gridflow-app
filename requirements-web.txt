@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+requests
+urllib3
+bcrypt
+psycopg2-binary
+sqlalchemy
+python-dotenv
+cryptography
+pyupbit
+python-bithumb
+websockets
+pydantic

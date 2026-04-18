@@ -1,0 +1,419 @@
+// GridFlow auth.js — login/session isolated module
+(function() {
+  'use strict';
+
+  var TOKEN_KEY = 'auth_token';
+  var USERNAME_KEY = 'saved_username';
+
+  window._token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
+  window._currentUser = null;
+  window.isGuest = window.isGuest || false;
+
+  window.syncInlineAuthState = function syncInlineAuthState() {
+    _token = window._token || '';
+    _currentUser = window._currentUser || null;
+  };
+
+  window.applyInlineAuthUi = function applyInlineAuthUi() {
+    syncInlineAuthState();
+    var adminTab = document.getElementById('tab-admin');
+    if (adminTab) adminTab.style.display = _currentUser && _currentUser.is_admin ? '' : 'none';
+    var lbl = document.getElementById('login-user-label');
+    if (lbl && _currentUser) {
+      var adminMark = _currentUser.is_admin ? ' 👑' : '';
+      var modeBadge = '';
+      if (_currentUser.is_guest) {
+        modeBadge = ' <span style="font-size:10px;font-weight:700;color:#F59E0B;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:4px;padding:1px 6px;vertical-align:middle">GUEST</span>';
+      } else if (_currentUser.is_dry_run) {
+        modeBadge = ' <span style="font-size:10px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.4);border-radius:4px;padding:1px 6px;vertical-align:middle">DRY RUN</span>';
+      } else {
+        modeBadge = ' <span style="font-size:10px;font-weight:700;color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:1px 6px;vertical-align:middle">LIVE</span>';
+      }
+      lbl.innerHTML = _currentUser.username + adminMark + modeBadge;
+    }
+  };
+
+  window.showLogin = function() {
+    if (window.isGuest) return;
+    var el = document.getElementById('login-overlay');
+    if (el) el.style.display = 'flex';
+  };
+
+  window.hideLogin = function() {
+    var el = document.getElementById('login-overlay');
+    if (el) el.style.display = 'none';
+  };
+
+  window.checkAuth = async function() {
+    if (window.isGuest) {
+      window.hideLogin();
+      if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+      return true;
+    }
+    if (!window._token) {
+      window.showLogin();
+      if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+      return false;
+    }
+    try {
+      var r = await fetch('/auth/me', {
+        headers: { 'X-Auth-Token': window._token }
+      });
+      if (r.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        window._token = '';
+        window._currentUser = null;
+        window.showLogin();
+        if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+        return false;
+      }
+      if (!r.ok) {
+        window.showLogin();
+        if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+        return false;
+      }
+      window._currentUser = await r.json();
+      window.hideLogin();
+      if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+      return true;
+    } catch(e) {
+      console.error('[AUTH] checkAuth 오류:', e);
+      window.showLogin();
+      if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+      return false;
+    }
+  };
+
+  window.doLogin = async function() {
+    var u = document.getElementById('login-username');
+    var p = document.getElementById('login-password');
+    var errEl = document.getElementById('login-err');
+    if (!u || !p) return;
+    var username = u.value.trim();
+    var password = p.value;
+    if (!username || !password) {
+      if (errEl) errEl.textContent = '아이디와 비밀번호를 입력하세요';
+      return;
+    }
+    try {
+      var r = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password })
+      });
+      var d = await r.json();
+      if (r.ok && d.token) {
+        var rememberEl = document.getElementById('login-remember');
+        var remember = !rememberEl || !!rememberEl.checked;
+        window._token = d.token;
+        if (remember) {
+          localStorage.setItem(TOKEN_KEY, d.token);
+          sessionStorage.removeItem(TOKEN_KEY);
+        } else {
+          sessionStorage.setItem(TOKEN_KEY, d.token);
+          localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+        }
+        try {
+          if (u && u.value.trim()) localStorage.setItem(USERNAME_KEY, u.value.trim());
+        } catch(e) {}
+        window._currentUser = d;
+        window.isGuest = false;
+        var _guestBanner = document.getElementById('guest-banner');
+        if (_guestBanner) _guestBanner.style.display = 'none';
+        window.hideLogin();
+        if (typeof applyAdminTabVisibility === "function") applyAdminTabVisibility();
+        if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+        // 첫 로그인 고지 팝업 체크 (게스트 제외)
+        var _noticeSeen = false;
+        try { _noticeSeen = !!localStorage.getItem('gf_notice_v1_' + (d.username || '')); } catch(e) {}
+        if (!_noticeSeen && d.username && !d.is_guest) {
+          var _nm = document.getElementById('gf-notice-modal');
+          if (_nm) { _nm.classList.add('open'); }
+          else { if (typeof init === 'function') init(); }
+        } else {
+          if (typeof init === 'function') init();
+        }
+      } else {
+        if (errEl) errEl.textContent = d.detail || '로그인 실패';
+      }
+    } catch(e) {
+      if (errEl) errEl.textContent = '서버 연결 오류';
+      console.error('[AUTH] doLogin 오류:', e);
+    }
+  };
+
+  // ── 고지 팝업 확인 처리 ──────────────────────────────
+  window.gfNoticeConfirm = function() {
+    var uname = window._currentUser && window._currentUser.username;
+    if (uname) {
+      try { localStorage.setItem('gf_notice_v1_' + uname, '1'); } catch(e) {}
+    }
+    var nm = document.getElementById('gf-notice-modal');
+    if (nm) nm.classList.remove('open');
+    if (typeof init === 'function') init();
+    // 홈 진입 후 안내 힌트 (1회, 5초)
+    setTimeout(function() {
+      var el = document.getElementById('toast-popup');
+      if (!el) return;
+      el.textContent = '💡 상단 바 [안내] 버튼에서 사용 방법과 주의사항을 언제든 확인할 수 있습니다.';
+      el.classList.add('show');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.classList.remove('show'); }, 5000);
+    }, 800);
+  };
+
+  // ── 고지 팝업 → 사용 방법 이동 ──────────────────────
+  window.gfNoticeGuide = function() {
+    var uname = window._currentUser && window._currentUser.username;
+    if (uname) {
+      try { localStorage.setItem('gf_notice_v1_' + uname, '1'); } catch(e) {}
+    }
+    var nm = document.getElementById('gf-notice-modal');
+    if (nm) nm.classList.remove('open');
+    if (typeof init === 'function') init();
+    setTimeout(function() {
+      if (typeof openGuide === 'function') openGuide();
+    }, 300);
+  };
+
+  window.doLogout = function() {
+    if (!confirm('로그아웃 하시겠습니까?')) return;
+    var isGuestLogout = !!(window.isGuest || (window._currentUser && window._currentUser.is_guest));
+    var savedToken = window._token;
+
+    // 1. 프론트 상태 즉시 초기화 (서버 응답 대기 없이)
+    window._token = '';
+    window._currentUser = null;
+    window.isGuest = false;
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+
+    // 2. UI 즉시 전환
+    var banner = document.getElementById('guest-banner');
+    if (banner) banner.style.display = 'none';
+    var uname = document.getElementById('login-user-label');
+    if (uname) uname.textContent = '';
+    var gfUname = document.getElementById('gf-uname');
+    if (gfUname) gfUname.textContent = '';
+    var overlay = document.getElementById('login-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+
+    // 3. 게스트 만료 타이머 정리
+    window._clearGuestExpireTimer();
+
+    // 4. 서버 호출 fire-and-forget (응답 대기 없음)
+    try {
+      fetch(isGuestLogout ? '/auth/guest/logout' : '/auth/logout', {
+        method: 'POST',
+        headers: { 'X-Auth-Token': savedToken }
+      }).catch(function(){});
+    } catch(e) {}
+  };
+
+  // ── 게스트 만료 타이머 ──────────────────────────────────────────
+  window._guestExpireTimerId = null;
+
+  window._clearGuestExpireTimer = function() {
+    if (window._guestExpireTimerId) {
+      clearTimeout(window._guestExpireTimerId);
+      window._guestExpireTimerId = null;
+    }
+  };
+
+  window._scheduleGuestExpiry = function(expiresAt) {
+    window._clearGuestExpireTimer();
+    if (!expiresAt) return;
+    var ms = new Date(expiresAt).getTime() - Date.now();
+    if (ms < 0) ms = 0;
+    window._guestExpireTimerId = setTimeout(function() {
+      window._guestExpireTimerId = null;
+      var savedToken = window._token;
+      // 상태 즉시 초기화
+      window._token = '';
+      window._currentUser = null;
+      window.isGuest = false;
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+      // UI 즉시 전환
+      var banner = document.getElementById('guest-banner');
+      if (banner) banner.style.display = 'none';
+      var uname = document.getElementById('login-user-label');
+      if (uname) uname.textContent = '';
+      var gfUname = document.getElementById('gf-uname');
+      if (gfUname) gfUname.textContent = '';
+      var overlay = document.getElementById('login-overlay');
+      if (overlay) overlay.style.display = 'flex';
+      if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+      // 만료 안내 토스트
+      try {
+        var msg = document.createElement('div');
+        msg.textContent = '게스트 세션이 만료되었습니다.';
+        msg.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1c1400;border:1px solid #F59E0B;color:#F59E0B;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;z-index:99999;white-space:nowrap;pointer-events:none;';
+        document.body.appendChild(msg);
+        setTimeout(function(){ if (msg.parentNode) msg.remove(); }, 3500);
+      } catch(e) {}
+      // 서버 만료 처리 fire-and-forget
+      try { fetch('/auth/guest/logout', { method: 'POST', headers: { 'X-Auth-Token': savedToken } }).catch(function(){}); } catch(e) {}
+    }, ms);
+  };
+
+  window.authFetch = async function(url, options) {
+    options = options || {};
+    if (window.isGuest) {
+      var guestUrl = String(url);
+      var guestMethod = options.method ? String(options.method).toUpperCase() : 'GET';
+      if (guestMethod !== 'GET') {
+        // POST /orders는 백엔드에서 DRY RUN sandbox 처리 — 실제 요청 통과
+        if (guestUrl.indexOf('/orders') > -1) {
+          var _h = Object.assign({}, options.headers || {}, { 'X-Auth-Token': window._token });
+          return fetch(url, Object.assign({}, options, { headers: _h }));
+        }
+        return new Response(JSON.stringify({ detail: '게스트 모드에서는 로그인이 필요합니다' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
+      /* 심볼/시세/티커/차트 — 인증 토큰과 함께 실제 호출 허용 */
+      if (guestUrl.indexOf('/symbols') > -1
+        || guestUrl.indexOf('/ticker') > -1
+        || guestUrl.indexOf('/markets') > -1
+        || guestUrl.indexOf('/candle') > -1
+        || guestUrl.indexOf('/orderbook') > -1) {
+        var _sh = Object.assign({}, options.headers || {}, { 'X-Auth-Token': window._token });
+        return fetch(url, Object.assign({}, options, { headers: _sh }));
+      }
+      if (guestUrl.indexOf('/balances') > -1 || guestUrl.indexOf('/balance') > -1) {
+        var guestKrw = window.__guestState ? window.__guestState.krw : 10000000;
+        return new Response(JSON.stringify({
+          krw: guestKrw,
+          krw_available: guestKrw,
+          krwBalance: guestKrw,
+          total: guestKrw,
+          total_eval_amount: guestKrw,
+          available: guestKrw
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (guestUrl.indexOf('/orders') > -1 || guestUrl.indexOf('/positions') > -1) {
+        var _gh = Object.assign({}, options.headers || {}, { 'X-Auth-Token': window._token });
+        return fetch(guestUrl, Object.assign({}, options, { headers: _gh }));
+      }
+      if (guestUrl.indexOf('/activity') > -1 || guestUrl.indexOf('/logs') > -1) {
+        return new Response(JSON.stringify({ logs: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (guestUrl.indexOf('/grid') > -1 || guestUrl.indexOf('/dca') > -1 || guestUrl.indexOf('/rebal') > -1) {
+        return new Response(JSON.stringify({ strategies: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (!window._token) {
+      window.showLogin();
+      return null;
+    }
+
+    var headers = Object.assign({}, options.headers || {}, { 'X-Auth-Token': window._token });
+    var r = await fetch(url, Object.assign({}, options, { headers: headers }));
+    if (r.status === 401) {
+      window.showLogin();
+      return null;
+    }
+    return r;
+  };
+
+  // DOM 준비 후 이벤트 바인딩
+  document.addEventListener('DOMContentLoaded', function() {
+    var loginBtn = document.getElementById('login-btn');
+    if (loginBtn) loginBtn.addEventListener('click', window.doLogin);
+    var guestBtn = document.getElementById('guest-btn');
+    if (guestBtn) guestBtn.addEventListener('click', window.enterGuestMode);
+
+    var usernameInput = document.getElementById('login-username');
+    var passwordInput = document.getElementById('login-password');
+    var rememberInput = document.getElementById('login-remember');
+
+    try {
+      var savedUsername = localStorage.getItem(USERNAME_KEY) || '';
+      if (usernameInput && savedUsername) usernameInput.value = savedUsername;
+      if (rememberInput) rememberInput.checked = !!localStorage.getItem(TOKEN_KEY);
+    } catch(e) {}
+
+    if (usernameInput) usernameInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') window.doLogin();
+    });
+    if (passwordInput) passwordInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') window.doLogin();
+    });
+
+    console.log('[AUTH] auth.js 로드 완료');
+  });
+})();
+
+// ── 게스트 모드 ────────────────────────────────────────────────
+window.enterGuestMode = async function() {
+  var errEl = document.getElementById('login-err');
+  try {
+    var r = await fetch('/auth/guest/session', { method: 'POST' });
+    var d = await r.json();
+    if (!r.ok || !d.token) {
+      if (errEl) errEl.textContent = d.detail || '게스트 세션 생성 실패';
+      return;
+    }
+    window._token = d.token;
+    window._currentUser = {
+      user_id: d.user_id,
+      username: d.username,
+      is_admin: false,
+      is_guest: true,
+      expires_at: d.expires_at
+    };
+    window.isGuest = true;
+    window._scheduleGuestExpiry(d.expires_at);
+    window.__guestState = {
+      krw: 10000000,
+      positions: [],
+      orders: [],
+      strategies: [],
+      logs: []
+    };
+    sessionStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_token');
+    var overlay = document.getElementById('login-overlay');
+    if (overlay) overlay.style.display = 'none';
+    var banner = document.getElementById('guest-banner');
+    if (banner) banner.style.display = 'flex';
+    var uname = document.getElementById('login-user-label');
+    if (uname) uname.textContent = '👀 체험중';
+    var gfUname = document.getElementById('gf-uname');
+    if (gfUname) gfUname.textContent = '👀 체험 모드';
+    if (typeof gfGo === 'function') gfGo('home');
+    if (typeof switchHome === 'function') switchHome();
+  } catch (e) {
+    if (errEl) errEl.textContent = '게스트 세션 생성 실패';
+    console.error('[AUTH] guest session 오류:', e);
+  }
+};
+
+window.showLoginFromGuest = function() {
+  window.isGuest = false;
+  var banner = document.getElementById('guest-banner');
+  if (banner) banner.style.display = 'none';
+  var uname = document.getElementById('login-user-label');
+  if (uname) uname.textContent = '';
+  var gfUname = document.getElementById('gf-uname');
+  if (gfUname) gfUname.textContent = '';
+  var overlay = document.getElementById('login-overlay');
+  if (overlay) overlay.style.display = 'flex';
+};
+
+window.guestBlock = function(action) {
+  if (!window.isGuest) return false;
+  var msg = document.createElement('div');
+  msg.textContent = action === 'api'
+    ? '게스트 모드에서는 API키 저장은 로그인 후 가능합니다.'
+    : '게스트 모드에서는 홈만 볼 수 있습니다. 로그인이 필요합니다.';
+  msg.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a1200;border:1px solid var(--accent);color:var(--accent);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:99999;white-space:nowrap;';
+  document.body.appendChild(msg);
+  setTimeout(function(){ msg.remove(); }, 2500);
+  return true;
+};

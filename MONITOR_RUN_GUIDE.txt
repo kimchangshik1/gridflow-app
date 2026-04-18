@@ -1,0 +1,30 @@
+OrderLens Ops 실행 안내
+
+1. 제품 개요
+OrderLens Ops는 주문 내역과 활동 로그를 읽기 전용으로 확인하는 웹 화면입니다.
+브라우저에서 최근 주문, 활동, 오류 상태를 자동 갱신으로 확인합니다.
+
+2. 준비물
+- 프로젝트 경로: /home/ubuntu/upbit_bot
+- Python 가상환경: /home/ubuntu/upbit_bot/venv
+- DB 연결 가능 상태
+- 거래소 API Key / API Secret
+
+3. API 키 입력 위치
+- 웹 입력: http://서버주소:8010/monitor/setup
+- 저장 파일: /home/ubuntu/upbit_bot/monitor_config.json
+
+4. 실행 명령어
+cd /home/ubuntu/upbit_bot
+source venv/bin/activate
+uvicorn app.monitor.product_app:app --host 0.0.0.0 --port 8010
+
+5. 접속 주소 예시
+- 모니터 화면: http://서버주소:8010/monitor
+- API 키 입력 화면: http://서버주소:8010/monitor/setup
+
+6. 정상 실행 확인 방법
+- 터미널에 "Application startup complete."가 표시됩니다.
+- 터미널에 "Uvicorn running on http://0.0.0.0:8010"이 표시됩니다.
+- 브라우저에서 /monitor 접속 시 "OrderLens Ops" 화면이 열립니다.
+- 화면 상태가 "Read-only live"로 표시되고 주문/활동 목록이 갱신됩니다.

@@ -1,0 +1,95 @@
+GridFlow D Operations Runbook
+
+Scope
+- PostgreSQL backup automation
+- One-time restore verification
+- GridFlow log rotation
+- Basic local downtime alert path
+
+Database
+- Runtime DB: local PostgreSQL on 127.0.0.1:5432
+- Database name: upbit_bot
+- App DB settings source: /home/ubuntu/upbit_bot/.env, key DB_URL
+- Do not print or hardcode DB_URL secrets in operational notes.
+
+Backup
+- Script: /home/ubuntu/upbit_bot/ops/gridflow_pg_backup.sh
+- Backup directory: /var/backups/gridflow
+- File pattern: upbit_bot_YYYYMMDD_HHMMSS.dump
+- Format: pg_dump custom format
+- Log: /var/log/gridflow_backup.log
+- Retention: 14 days by default
+- Automatic execution: systemd timer gridflow-pg-backup.timer
+- Schedule: daily at 03:20 UTC
+
+Manual backup
+- Run: sudo /home/ubuntu/upbit_bot/ops/gridflow_pg_backup.sh
+- Check result: sudo tail -n 20 /var/log/gridflow_backup.log
+- List backups: sudo ls -lh /var/backups/gridflow
+
+Restore verification
+- Script: /home/ubuntu/upbit_bot/ops/gridflow_pg_restore_verify.sh
+- The script creates a temporary database named gridflow_restore_verify_YYYYMMDD_HHMMSS.
+- It restores the latest dump into the temporary database only.
+- It drops the temporary database on exit.
+- It must not restore into the production upbit_bot database.
+- Log: /var/log/gridflow_restore_verify.log
+
+Manual restore verification
+- Run: sudo /home/ubuntu/upbit_bot/ops/gridflow_pg_restore_verify.sh
+- Check result: sudo tail -n 20 /var/log/gridflow_restore_verify.log
+- Success line starts with: OK restore_verify
+
+Logs
+- App/journal services:
+  - gridflow-app.service
+  - orderlens-ops.service
+  - upbit-bot.service
+- Excluded legacy service:
+  - upbit-web.service is not part of the current operating path; if present it should remain disabled/inactive unless the deployment is intentionally changed.
+- File logs rotated by logrotate:
+  - /home/ubuntu/upbit_bot/bot.log
+  - /home/ubuntu/upbit_bot/monitor.log
+  - /home/ubuntu/upbit_bot/monitor_8010.log
+  - /home/ubuntu/upbit_bot/monitor_uvicorn.log
+  - /home/ubuntu/upbit_bot/nohup.out
+  - /var/log/gridflow_backup.log
+  - /var/log/gridflow_restore_verify.log
+  - /var/log/gridflow_alert.log
+- Logrotate config: /etc/logrotate.d/gridflow
+- Policy: daily, rotate 7, compress, missingok, notifempty, copytruncate.
+
+Downtime alert
+- Script: /home/ubuntu/upbit_bot/ops/gridflow_health_alert.sh
+- Automatic execution: systemd timer gridflow-health-alert.timer
+- Schedule: every 5 minutes
+- Env load: the script reads /home/ubuntu/upbit_bot/.env when present.
+- Checks:
+  - gridflow-app.service
+  - orderlens-ops.service
+  - upbit-bot.service
+  - nginx.service
+  - postgresql@16-main.service
+  - http://127.0.0.1:8000/
+  - http://127.0.0.1:8010/monitor
+- Endpoint validation:
+  - Local app: curl http://127.0.0.1:8000/ expects HTTP 200.
+  - Local monitor: curl http://127.0.0.1:8010/monitor expects redirect to /monitor/login before login.
+  - HTTPS app via nginx: curl https://gridflow.co.kr/ expects HTTP 200.
+  - HTTPS monitor via nginx: curl https://gridflow.co.kr/monitor expects redirect to /monitor/login before login.
+- Alert output:
+  - /var/log/gridflow_alert.log
+  - syslog/journal tag: gridflow-health
+- External push:
+  - Optional env: GRIDFLOW_ALERT_WEBHOOK_URL
+  - Backward-compatible reuse: DISCORD_WEBHOOK_URL is also accepted if GRIDFLOW_ALERT_WEBHOOK_URL is unset.
+  - Send condition: FAIL state only. OK state does not emit external push.
+  - Duplicate suppression: the same failing service/endpoint set is suppressed until the failure set changes or the cooldown expires.
+  - Cooldown env: GRIDFLOW_ALERT_PUSH_COOLDOWN_SECONDS, default 1800 seconds.
+
+Alert check
+- Run: sudo systemctl status gridflow-health-alert.timer --no-pager
+- Run once: sudo systemctl start gridflow-health-alert.service
+- Read local alert log: sudo tail -n 50 /var/log/gridflow_alert.log
+- Read journal: sudo journalctl -t gridflow-health -n 50 --no-pager
+- Verify webhook env: sudo grep -E '^(GRIDFLOW_ALERT_WEBHOOK_URL|DISCORD_WEBHOOK_URL|GRIDFLOW_ALERT_PUSH_COOLDOWN_SECONDS)=' /home/ubuntu/upbit_bot/.env
