@@ -63,3 +63,6 @@ static/index_v*.html
 
 app/api/*.market_sell_step1_backup_*
 app/api/*.bak*
+
+app/api/*.market_sell_step1_backup_*
+app/api/*.bak*
