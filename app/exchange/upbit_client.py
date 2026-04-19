@@ -15,6 +15,7 @@ class UpbitClient:
         sk = secret_key or UPBIT_SECRET_KEY
         self._upbit = pyupbit.Upbit(ak, sk)
         self._symbols: list[str] = []
+        self._last_buy_order_error: Optional[str] = None
 
     def load_symbols(self) -> list[str]:
         try:
@@ -62,6 +63,7 @@ class UpbitClient:
             return None
 
     def submit_buy_order(self, symbol: str, price: float, amount_krw: float) -> Optional[str]:
+        self._last_buy_order_error = None
         if DRY_RUN:
             fake_id = f"DRYRUN_BUY_{symbol}_{int(time.time())}"
             print(f"[DRY_RUN] 매수: {symbol} 가격={price} 금액={amount_krw}원")
@@ -77,7 +79,8 @@ class UpbitClient:
                 qty = math.ceil(amount_krw / price * 10000) / 10000
                 actual_total = qty * price
             if actual_total < 5500:
-                print(f"[ERROR] 최소 주문금액 미달: {actual_total}원 (최소 5500원)")
+                self._last_buy_order_error = f"최소 주문금액 미달: {actual_total}원 (최소 5500원)"
+                print(f"[ERROR] {self._last_buy_order_error}")
                 return None
             data = {
                 "market": symbol,
@@ -98,21 +101,27 @@ class UpbitClient:
             try:
                 result = resp.json()
             except Exception:
-                print(f"[ERROR] 매수 주문 응답 파싱 실패 {symbol}: HTTP {resp.status_code} {resp.text[:200]}")
+                self._last_buy_order_error = f"매수 주문 응답 파싱 실패 HTTP {resp.status_code}: {resp.text[:200]}"
+                print(f"[ERROR] {self._last_buy_order_error} {symbol}")
                 return None
             if resp.status_code >= 400:
-                print(f"[ERROR] 매수 주문 거절 {symbol}: HTTP {resp.status_code} {result}")
+                self._last_buy_order_error = f"매수 주문 거절 HTTP {resp.status_code}: {str(result)[:200]}"
+                print(f"[ERROR] {self._last_buy_order_error} {symbol}")
                 return None
             if not result:
+                self._last_buy_order_error = "매수 주문 응답이 비어 있음"
                 return None
             order_id = result.get("uuid")
             if not order_id:
-                print(f"[ERROR] 주문 ID 없음: {result}")
+                self._last_buy_order_error = f"주문 ID 없음: {str(result)[:200]}"
+                print(f"[ERROR] {self._last_buy_order_error}")
                 return None
+            self._last_buy_order_error = None
             print(f"[ORDER] 매수 제출: {symbol} {price} {amount_krw}원 → {order_id}")
             return order_id
         except Exception as e:
-            print(f"[ERROR] 매수 주문 실패 {symbol}: {e}")
+            self._last_buy_order_error = f"{type(e).__name__}: {e}"
+            print(f"[ERROR] 매수 주문 실패 {symbol}: {self._last_buy_order_error}")
             return None
 
     def submit_sell_order(self, symbol: str, price: float, qty: float) -> Optional[str]:
