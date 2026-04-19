@@ -6162,7 +6162,7 @@ setInterval(function () {
   }
 
   function getSymbolMap(){
-    var list = Array.isArray(window._symbols) ? window._symbols : [];
+    var list = (typeof _symbols !== 'undefined' && Array.isArray(_symbols)) ? _symbols : (Array.isArray(window._symbols) ? window._symbols : []);
     var map = {};
     list.forEach(function(item){
       if (item && item.market) map[item.market] = item;
