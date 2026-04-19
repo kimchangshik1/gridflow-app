@@ -14,6 +14,12 @@ def get_bithumb_ticker_cache() -> dict:
     return _bithumb_cache
 
 
+def set_bithumb_ticker_cache(data: dict) -> dict:
+    global _bithumb_cache
+    _bithumb_cache = data if isinstance(data, dict) else {}
+    return _bithumb_cache
+
+
 async def refresh_upbit_cache(symbols: list):
     global _upbit_cache
     try:
@@ -34,14 +40,13 @@ async def refresh_upbit_cache(symbols: list):
 
 
 async def refresh_bithumb_cache():
-    global _bithumb_cache
     try:
         r = requests.get(
             "https://api.bithumb.com/public/ticker/ALL_KRW",
             timeout=5
         )
         data = r.json().get("data", {})
-        _bithumb_cache = data
+        set_bithumb_ticker_cache(data)
         print(f"[CACHE] Bithumb {len(data)}개 갱신 완료")
     except Exception as e:
         print(f"[CACHE] Bithumb 갱신 실패: {e}")

@@ -1,6 +1,7 @@
 import uuid
+import time
 import requests
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel
 from typing import Optional
 from app.db.database import get_db
@@ -15,6 +16,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 router = APIRouter()
 client = BithumbClient()
+_bithumb_market_name_cache = {}
+_bithumb_market_name_cache_fetched_at = 0.0
+_BITHUMB_MARKET_NAME_CACHE_TTL_SEC = 300
 
 
 class OrderRequest(BaseModel):
@@ -52,32 +56,73 @@ def get_user_bithumb_client(user_id: int):
     return None
 
 
-@router.get("/symbols/ranked")
-def get_ranked_symbols(user=Depends(get_current_user)):
-    from app.core.cache import get_bithumb_ticker_cache
+def get_bithumb_market_name_map() -> dict:
+    global _bithumb_market_name_cache
+    global _bithumb_market_name_cache_fetched_at
 
+    now = time.time()
+    if _bithumb_market_name_cache and (now - _bithumb_market_name_cache_fetched_at) < _BITHUMB_MARKET_NAME_CACHE_TTL_SEC:
+        return _bithumb_market_name_cache
+
+    try:
+        kr = requests.get("https://api.upbit.com/v1/market/all?isDetails=false", timeout=5)
+        korean_rows = kr.json()
+        _bithumb_market_name_cache = {
+            m["market"].replace("KRW-", ""): m.get("korean_name", "")
+            for m in korean_rows
+        }
+        _bithumb_market_name_cache_fetched_at = now
+    except (requests.RequestException, ValueError, TypeError):
+        if not _bithumb_market_name_cache:
+            _bithumb_market_name_cache = {}
+
+    return _bithumb_market_name_cache
+
+
+def get_bithumb_market_name_map_with_state() -> tuple[dict, str]:
+    global _bithumb_market_name_cache
+    global _bithumb_market_name_cache_fetched_at
+
+    now = time.time()
+    if _bithumb_market_name_cache and (now - _bithumb_market_name_cache_fetched_at) < _BITHUMB_MARKET_NAME_CACHE_TTL_SEC:
+        return _bithumb_market_name_cache, "warm"
+
+    try:
+        kr = requests.get("https://api.upbit.com/v1/market/all?isDetails=false", timeout=5)
+        korean_rows = kr.json()
+        _bithumb_market_name_cache = {
+            m["market"].replace("KRW-", ""): m.get("korean_name", "")
+            for m in korean_rows
+        }
+        _bithumb_market_name_cache_fetched_at = now
+        return _bithumb_market_name_cache, "cold"
+    except (requests.RequestException, ValueError, TypeError):
+        if not _bithumb_market_name_cache:
+            _bithumb_market_name_cache = {}
+        return _bithumb_market_name_cache, "stale"
+
+
+@router.get("/symbols/ranked")
+def get_ranked_symbols(request: Request, response: Response, user=Depends(get_current_user)):
+    from app.core.cache import get_bithumb_ticker_cache, set_bithumb_ticker_cache
+
+    server_start_ms = time.time() * 1000
+    started_at = time.perf_counter()
     cache = get_bithumb_ticker_cache()
+    request_id = str(request.query_params.get("rid") or request.headers.get("X-Request-Id") or uuid.uuid4())
+    client_start_ms = str(request.headers.get("X-Client-Start-Ms") or "")
 
     try:
         if cache:
             data = cache
+            ticker_cache_state = "warm"
         else:
             r = requests.get("https://api.bithumb.com/public/ticker/ALL_KRW", timeout=5)
             data = r.json().get("data", {})
+            set_bithumb_ticker_cache(data)
+            ticker_cache_state = "cold"
 
-        korean_map = {}
-        korean_rows = []
-        try:
-            import requests as req
-            kr = req.get("https://api.upbit.com/v1/market/all?isDetails=false", timeout=5)
-            korean_rows = kr.json()
-            korean_map = {
-                m["market"].replace("KRW-", ""): m.get("korean_name", "")
-                for m in korean_rows
-            }
-        except (requests.RequestException, ValueError, TypeError):
-            korean_rows = []
-            korean_map = {}
+        korean_map, market_name_cache_state = get_bithumb_market_name_map_with_state()
 
         result = []
         for k, v in data.items():
@@ -104,6 +149,16 @@ def get_ranked_symbols(user=Depends(get_current_user)):
                 })
 
         result.sort(key=lambda x: x["acc_trade_price_24h"], reverse=True)
+        server_end_ms = time.time() * 1000
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        response.headers["X-Request-Id"] = request_id
+        response.headers["X-Server-Start-Ms"] = f"{server_start_ms:.2f}"
+        response.headers["X-Server-End-Ms"] = f"{server_end_ms:.2f}"
+        response.headers["X-Server-Elapsed-Ms"] = f"{elapsed_ms:.2f}"
+        if client_start_ms:
+            response.headers["X-Client-Start-Ms-Echo"] = client_start_ms
+        response.headers["X-Bithumb-Ticker-Cache"] = ticker_cache_state
+        response.headers["X-Bithumb-Market-Name-Cache"] = market_name_cache_state
         return {"symbols": result}
 
     except Exception as e:
