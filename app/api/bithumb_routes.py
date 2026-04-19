@@ -11,6 +11,7 @@ from app.auth.dependencies import get_current_user
 from app.core.crypto import decrypt
 from app.core.config import DB_URL
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 router = APIRouter()
 client = BithumbClient()
@@ -26,6 +27,8 @@ class OrderRequest(BaseModel):
 
 
 def get_user_bithumb_client(user_id: int):
+    access = None
+    secret = None
     try:
         with get_db() as db:
             def get_key(key_name):
@@ -42,8 +45,9 @@ def get_user_bithumb_client(user_id: int):
 
         if access and secret:
             return BithumbClient(access_key=access, secret_key=secret)
-    except Exception:
-        pass
+    except (SQLAlchemyError, TypeError, ValueError):
+        access = None
+        secret = None
 
     return None
 
@@ -62,30 +66,42 @@ def get_ranked_symbols(user=Depends(get_current_user)):
             data = r.json().get("data", {})
 
         korean_map = {}
+        korean_rows = []
         try:
             import requests as req
             kr = req.get("https://api.upbit.com/v1/market/all?isDetails=false", timeout=5)
+            korean_rows = kr.json()
             korean_map = {
                 m["market"].replace("KRW-", ""): m.get("korean_name", "")
-                for m in kr.json()
+                for m in korean_rows
             }
-        except Exception:
-            pass
+        except (requests.RequestException, ValueError, TypeError):
+            korean_rows = []
+            korean_map = {}
 
         result = []
         for k, v in data.items():
             if k == "date":
                 continue
+            row_payload = None
             try:
-                result.append({
+                row_payload = {
                     "market": f"KRW-{k}",
                     "korean_name": korean_map.get(k, k),
                     "trade_price": float(v.get("closing_price", 0)),
                     "acc_trade_price_24h": float(v.get("acc_trade_value_24H", 0)),
                     "change_rate": float(v.get("fluctate_rate_24H", 0)) / 100,
+                }
+            except (AttributeError, TypeError, ValueError):
+                row_payload = None
+            if row_payload is not None:
+                result.append({
+                    "market": row_payload["market"],
+                    "korean_name": row_payload["korean_name"],
+                    "trade_price": row_payload["trade_price"],
+                    "acc_trade_price_24h": row_payload["acc_trade_price_24h"],
+                    "change_rate": row_payload["change_rate"],
                 })
-            except Exception:
-                continue
 
         result.sort(key=lambda x: x["acc_trade_price_24h"], reverse=True)
         return {"symbols": result}
