@@ -15,6 +15,63 @@ var switchGrid = window.switchGrid = function switchGrid() {
   if (typeof fetchDCAStrategies === 'function') fetchDCAStrategies();
 };
 
+function _gridFormatPrice(price) {
+  if (!isFinite(price) || price <= 0) return '-';
+  return Number(price).toLocaleString() + ((window._lang === 'ko') ? '원' : ' KRW');
+}
+
+function _gridResolveSelectedPrice(symbol) {
+  if (!symbol) return 0;
+  var list = [];
+  if (Array.isArray(window._symbols)) list = window._symbols;
+  else if (typeof _symbols !== 'undefined' && Array.isArray(_symbols)) list = _symbols;
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i];
+    if (item && item.market === symbol) {
+      var price = parseFloat(item.trade_price);
+      return isFinite(price) && price > 0 ? price : 0;
+    }
+  }
+  return 0;
+}
+
+window.updateGridCurrentPriceCard = function() {
+  var panel = document.getElementById('grid-right-panel');
+  if (!panel) return;
+
+  var card = document.getElementById('grid-current-price-card');
+  if (!card) {
+    panel.insertAdjacentHTML('afterbegin',
+      '<div id="grid-current-price-card" style="border-radius:14px;background:rgba(20,22,25,0.64);border:1px solid rgba(255,255,255,0.05);padding:14px">' +
+        '<div style="font-size:13px;font-weight:700;color:#FFFFFF;margin-bottom:10px">선택한 코인 현재가</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">' +
+          '<div style="min-width:0;flex:1">' +
+            '<div style="font-size:10px;color:rgba(255,255,255,0.38);margin-bottom:2px">선택 코인</div>' +
+            '<div id="grid-current-price-symbol" style="font-size:12px;font-weight:700;color:#D1D5DB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">-</div>' +
+          '</div>' +
+          '<div style="text-align:right;flex-shrink:0">' +
+            '<div style="font-size:10px;color:rgba(255,255,255,0.38);margin-bottom:2px">현재가</div>' +
+            '<div id="grid-current-price-value" style="font-size:18px;font-weight:800;color:#F59E0B">-</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+    card = document.getElementById('grid-current-price-card');
+    var nextCard = card ? card.nextElementSibling : null;
+    if (nextCard && nextCard.style) nextCard.style.marginBottom = '0';
+  }
+
+  var symbol = (document.getElementById('grid-symbol') || {}).value || '';
+  var symbolSearch = (document.getElementById('grid-symbol-search') || {}).value || '';
+  var displaySymbol = symbolSearch || symbol || '-';
+  var price = symbol ? _gridResolveSelectedPrice(symbol) : 0;
+  var symbolEl = document.getElementById('grid-current-price-symbol');
+  var priceEl = document.getElementById('grid-current-price-value');
+  if (symbolEl) symbolEl.textContent = symbol ? displaySymbol : '-';
+  if (priceEl) priceEl.textContent = _gridFormatPrice(price);
+  if (card) card.style.opacity = symbol ? '1' : '0.78';
+};
+
 window.updateGridSummaryPanel = function() {
   var exchange = (document.getElementById('grid-exchange') || {}).value || '';
   var symbol = (document.getElementById('grid-symbol') || {}).value || '';
@@ -51,6 +108,8 @@ window.updateGridSummaryPanel = function() {
     statusEl.textContent = canStart ? '시작 가능' : '시작 불가';
     statusEl.style.color = canStart ? '#10B981' : '#EF4444';
   }
+
+  updateGridCurrentPriceCard();
 };
 
 window.updateDCASummaryPanel = function() {
@@ -184,6 +243,7 @@ window.selectGridSymbolById = function(el) {
   document.getElementById('grid-symbol-dropdown').style.display = 'none';
   document.getElementById('grid-base-price').value = price;
   updateGridPreview();
+  updateGridSummaryPanel();
 };
 
 window.searchGridSymbol = function(query) {
@@ -630,7 +690,7 @@ window.viewGridOrders = async function(id) {
   var total = d.orders.length;
   var waiting = d.orders.filter(o => o.status === 'WAITING').length;
   var buyOrdered = d.orders.filter(o => o.status === 'BUY_ORDERED').length;
-  var buyFilled = d.orders.filter(o => o.status === 'BUY_FILLED').length;
+  var buyFilled = d.orders.filter(o => ['BUY_FILLED', 'SELL_ORDERED', 'SELL_FILLED'].indexOf(o.status) !== -1).length;
   var sellOrdered = d.orders.filter(o => o.status === 'SELL_ORDERED').length;
   var sellFilled = d.orders.filter(o => o.status === 'SELL_FILLED').length;
   var totalProfit = d.orders.reduce(function(acc, o) { return acc + o.profit; }, 0);
@@ -647,6 +707,9 @@ window.viewGridOrders = async function(id) {
 
   var ordersHtml = d.orders.map(function(o) {
     var si = statusInfo[o.status] || statusInfo['WAITING'];
+    var progressText = o.status === 'SELL_ORDERED'
+      ? '🔄 매수체결 후 매도주문 진행 중'
+      : si.text;
     var profitHtml = o.profit > 0
       ? '<span class="pnl-plus" style="font-size:12px;font-weight:700">+' + Number(o.profit).toLocaleString() + '원</span>'
       : '';
@@ -664,7 +727,7 @@ window.viewGridOrders = async function(id) {
         '</div>' +
       '</div>' +
       '<div style="text-align:right">' +
-        '<div style="font-size:12px;font-weight:700;color:' + si.color + '">' + si.text + '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:' + si.color + '">' + progressText + '</div>' +
         profitHtml +
       '</div>' +
     '</div>';
@@ -715,6 +778,7 @@ window.editGrid = function(id) {
       btn.onclick = function() { submitEditGrid(id); };
     }
     updateGridPreview();
+    updateGridSummaryPanel();
     form.scrollIntoView({behavior:'smooth'});
   });
 };
