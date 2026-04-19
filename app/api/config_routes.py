@@ -10,6 +10,9 @@ import json
 import subprocess
 
 router = APIRouter()
+_SUDO_BIN = "/usr/bin/sudo"
+_SYSTEMCTL_BIN = "/usr/bin/systemctl"
+_BOT_SERVICE_NAME = "upbit-bot"
 
 
 def _cancel_live_orders(user_id: int, exchanges: list) -> dict:
@@ -186,7 +189,7 @@ def save_keys(req: ApiKeyRequest, user=Depends(get_current_user)):
 
     if user.get("is_admin"):
         try:
-            subprocess.Popen(["sudo", "systemctl", "restart", "upbit-bot"])
+            subprocess.Popen([_SUDO_BIN, _SYSTEMCTL_BIN, "restart", _BOT_SERVICE_NAME])
         except Exception as e:
             print(f"[CONFIG] 봇 재시작 실패: {e}")
 
@@ -280,7 +283,7 @@ def delete_bithumb_keys(user=Depends(get_current_user)):
 def get_status(user=Depends(get_current_user)):
     try:
         result = subprocess.run(
-            ["sudo", "systemctl", "is-active", "upbit-bot"],
+            [_SUDO_BIN, _SYSTEMCTL_BIN, "is-active", _BOT_SERVICE_NAME],
             capture_output=True, text=True
         )
         bot_status = result.stdout.strip()
