@@ -2,17 +2,10 @@ import asyncio
 import psycopg2
 from decimal import Decimal
 from datetime import datetime, timezone
-from app.core.config import DRY_RUN
-
-DB_CONFIG = {
-    "host": "127.0.0.1",
-    "dbname": "upbit_bot",
-    "user": "tradingbot",
-    "password": "upbit1234"
-}
+from app.core.config import DB_URL, DRY_RUN
 
 def get_conn():
-    return psycopg2.connect(**DB_CONFIG)
+    return psycopg2.connect(DB_URL)
 
 def now_utc():
     return datetime.now(timezone.utc)
@@ -148,6 +141,7 @@ class GridEngine:
             symbol = order[5]
             amount_krw = float(order[8])
             qty = float(order[9])
+            raw_buy_fail_reason = None
 
             if DRY_RUN or is_dry_run:
                 exchange_order_id = f"GRID-DRY-{order_id}"
@@ -155,10 +149,13 @@ class GridEngine:
             else:
                 if exchange == "upbit" and client:
                     exchange_order_id = client.submit_buy_order(symbol, buy_price, amount_krw)
+                    raw_buy_fail_reason = getattr(client, "_last_buy_order_error", None)
                 elif exchange == "bithumb" and client:
                     exchange_order_id = client.submit_buy_order(symbol, buy_price, amount_krw)
+                    raw_buy_fail_reason = getattr(client, "_last_buy_order_error", None)
                 else:
-                    return
+                    exchange_order_id = None
+                    raw_buy_fail_reason = f"주문 클라이언트 없음: exchange={exchange}" if not client else f"지원하지 않는 거래소: {exchange}"
 
             if exchange_order_id:
                 # 성공 시 cooldown 해제
@@ -178,14 +175,17 @@ class GridEngine:
                 # 첫 실패만 activity_log INSERT, 이후 60초 cooldown
                 _is_first_fail = order_id not in self._buy_fail_cooldown
                 self._buy_fail_cooldown[order_id] = now_utc()
-                # S3: 실패 reason 판별 (status_ko에 담아 UI에 노출)
-                _buy_fail_reason = '최소금액미달' if amount_krw < 5500 else 'API거부'
+                # S3: 실패 reason 판별 (raw reason은 로그에만 남기고 DB에는 짧은 라벨 저장)
+                _buy_fail_reason = str(raw_buy_fail_reason).strip()[:100] if raw_buy_fail_reason else ""
+                if not _buy_fail_reason:
+                    _buy_fail_reason = '최소금액미달' if amount_krw < 5500 else 'API거부'
                 print(f"[GRID][{exchange.upper()}] 매수 주문 실패({_buy_fail_reason}): symbol={symbol} price={buy_price} amount_krw={amount_krw} (cooldown 60s)")
                 if _is_first_fail:
                     try:
+                        _activity_status_ko = '주문실패'
                         cur.execute(
                             "INSERT INTO activity_logs (user_id, event_type, symbol, exchange, side, side_ko, status, status_ko, strategy_type, price, amount_krw) VALUES (%s, 'order_fail', %s, %s, 'BUY', '매수', 'FAILED', %s, '그리드', %s, %s)",
-                            (order[2], symbol, exchange, _buy_fail_reason, buy_price, amount_krw)
+                            (order[2], symbol, exchange, _activity_status_ko, buy_price, amount_krw)
                         )
                     except Exception as _log_err:
                         print(f"[GRID] activity_log 기록 실패: {_log_err}")
@@ -233,7 +233,7 @@ class GridEngine:
         order_id = order[0]
         exchange = order[4]
         symbol = order[5]
-        sell_price = float(order[7] if len(order) > 7 else order[6]) + 1
+        sell_price = round(float(order[7] if len(order) > 7 else order[6]) + 1, 2)
         qty = float(order[9])
 
         if DRY_RUN or is_dry_run:
@@ -250,9 +250,9 @@ class GridEngine:
         if exchange_order_id:
             cur.execute("""
                 UPDATE grid_orders SET status='SELL_ORDERED',
-                sell_order_id=%s, updated_at=NOW()
+                sell_price=%s, sell_order_id=%s, updated_at=NOW()
                 WHERE id=%s
-            """, (exchange_order_id, order_id))
+            """, (sell_price, exchange_order_id, order_id))
             print(f"[GRID] 매도 주문 제출: {symbol} {sell_price}원")
         else:
             # S3: 매도 실패 reason — qty가 아주 소량이면 최소금액 미달 가능, 그 외 API거부
@@ -294,10 +294,11 @@ class GridEngine:
               smart_sell_step=%s,
               smart_sell_qty_remaining=%s,
               status='SELL_ORDERED',
+              sell_price=%s,
               sell_order_id=NULL,
               updated_at=NOW()
             WHERE id=%s
-        """, (step, remaining_qty, order_id))
+        """, (step, remaining_qty, sell_price, order_id))
 
         exchange_order_id = self._place_sell_order(
             order, client, is_dry_run, sell_price, sell_qty, label=f"분할익절 1/{steps}"
@@ -483,10 +484,11 @@ class GridEngine:
             UPDATE grid_orders SET
             status='WAITING', trailing_active=FALSE, trailing_high_price=NULL,
             trailing_sell_order_id=%s, smart_sell_step=0, smart_sell_qty_remaining=NULL,
+            sell_price=%s,
             buy_order_id=NULL, sell_order_id=NULL,
             profit=%s, updated_at=NOW()
             WHERE id=%s
-        """, (exchange_order_id, profit, order_id))
+        """, (exchange_order_id, sell_price, profit, order_id))
 
         cur.execute("""
             UPDATE grid_strategies SET
@@ -503,7 +505,7 @@ class GridEngine:
         symbol = order[5]
         sell_order_id = order[11] if len(order) > 11 else None
         buy_price = float(order[6])
-        sell_price = float(order[7] if len(order) > 7 else order[6]) + 1
+        sell_price = float(order[7] if len(order) > 7 else order[6])
         qty = float(order[9])
         strategy_id = order[1]
 
@@ -530,7 +532,7 @@ class GridEngine:
 
     def _is_sell_filled(self, exchange, symbol, sell_order_id, client, is_dry_run, order):
         if DRY_RUN or is_dry_run:
-            sell_price = float(order[7] if len(order) > 7 else order[6]) + 1
+            sell_price = float(order[7] if len(order) > 7 else order[6])
             current_price = self._get_current_price(exchange, symbol)
             return current_price is not None and current_price >= sell_price
         else:

@@ -17,6 +17,7 @@ _AUTH_PATH = Path(
 
 _SESSION_TTL = timedelta(hours=8)
 _sessions: dict = {}  # token -> expires_at (datetime)
+_MONITOR_CONFIG_FIELDS = ("exchange", "api_key", "api_secret")
 
 _LOCAL_USER = {
     "user_id": 1,
@@ -50,8 +51,12 @@ def write_monitor_config(data: dict) -> None:
     _write_monitor_json(_CONFIG_PATH, data, indent=2)
 
 
+def _empty_monitor_config() -> dict:
+    return dict.fromkeys(_MONITOR_CONFIG_FIELDS, str())
+
+
 def clear_monitor_config() -> None:
-    write_monitor_config({"exchange": "", "api_key": "", "api_secret": ""})
+    write_monitor_config(_empty_monitor_config())
 
 def has_monitor_password() -> bool:
     return _AUTH_PATH.exists()

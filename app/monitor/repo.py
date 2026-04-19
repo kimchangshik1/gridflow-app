@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from requests import RequestException
 from sqlalchemy import text
 
 from app.db.database import get_db
@@ -39,6 +40,7 @@ def _format_activity_message(status: str, status_ko: str, reason: str, extra: st
 
     details = [_reason_label(reason)] if reason else []
     if extra:
+        parsed = None
         try:
             parsed = json.loads(extra)
             if isinstance(parsed, dict):
@@ -49,8 +51,8 @@ def _format_activity_message(status: str, status_ko: str, reason: str, extra: st
                     if key in _SAFE_EXTRA_KEYS
                 )
             # else: 비구조화 extra는 노출하지 않음
-        except Exception:
-            pass  # 파싱 실패 시 raw extra 미노출
+        except (TypeError, ValueError):
+            parsed = None  # 파싱 실패 시 raw extra 미노출
 
     if details and message:
         return f"{message} ({'; '.join(details)})"
@@ -86,27 +88,24 @@ def _fetch_balances(client) -> dict:
 
 def _fetch_orders(exchange: str, client, balances: dict) -> list:
     orders = []
-    try:
-        # 보유 종목(KRW 제외)에 대해 미체결 주문 조회
-        symbols = [f"KRW-{cur}" for cur in balances if cur != "KRW"]
-        for symbol in symbols:
-            try:
-                rows = client.get_open_orders(symbol)
-                for r in (rows or []):
-                    orders.append({
-                        "id": r.get("uuid") or r.get("order_id") or "",
-                        "exchange": exchange,
-                        "symbol": symbol,
-                        "side": r.get("side", ""),
-                        "status": r.get("state") or r.get("status", "wait"),
-                        "price": float(r.get("price") or 0),
-                        "qty": float(r.get("executed_volume") or r.get("filled_qty") or 0),
-                        "created_at": str(r.get("created_at", "")),
-                    })
-            except Exception:
-                continue
-    except Exception as e:
-        print(f"[monitor] 주문 조회 실패: {e}")
+    symbols = [f"KRW-{cur}" for cur in balances if cur != "KRW"] if isinstance(balances, dict) else []
+    for symbol in symbols:
+        rows = []
+        try:
+            rows = client.get_open_orders(symbol)
+        except (AttributeError, RequestException, TypeError, ValueError) as exc:
+            print(f"[monitor] 주문 조회 실패 {symbol}: {exc}")
+        for r in (rows or []):
+            orders.append({
+                "id": r.get("uuid") or r.get("order_id") or "",
+                "exchange": exchange,
+                "symbol": symbol,
+                "side": r.get("side", ""),
+                "status": r.get("state") or r.get("status", "wait"),
+                "price": float(r.get("price") or 0),
+                "qty": float(r.get("executed_volume") or r.get("filled_qty") or 0),
+                "created_at": str(r.get("created_at", "")),
+            })
     return orders
 
 

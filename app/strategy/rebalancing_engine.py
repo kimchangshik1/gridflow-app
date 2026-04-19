@@ -2,17 +2,10 @@ import asyncio
 import psycopg2
 import requests
 from datetime import datetime, timezone, timedelta
-from app.core.config import DRY_RUN
-
-DB_CONFIG = {
-    "host": "127.0.0.1",
-    "dbname": "upbit_bot",
-    "user": "tradingbot",
-    "password": "upbit1234"
-}
+from app.core.config import DB_URL, DRY_RUN
 
 def get_conn():
-    return psycopg2.connect(**DB_CONFIG)
+    return psycopg2.connect(DB_URL)
 
 def now_utc():
     return datetime.now(timezone.utc)
