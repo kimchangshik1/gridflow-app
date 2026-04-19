@@ -60,3 +60,6 @@ static/index_v*.html
 *.bak_*
 *.save
 *.htmi
+
+app/api/*.market_sell_step1_backup_*
+app/api/*.bak*
