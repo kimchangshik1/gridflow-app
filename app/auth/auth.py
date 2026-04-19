@@ -180,6 +180,8 @@ def create_guest_user() -> Optional[dict]:
         username = "guest_" + secrets.token_hex(8)
         password = secrets.token_urlsafe(24)
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        conn = None
+        cur = None
         try:
             conn = get_conn()
             cur = conn.cursor()
@@ -205,11 +207,20 @@ def create_guest_user() -> Optional[dict]:
             }
         except Exception as e:
             try:
-                conn.rollback()
-                cur.close()
-                conn.close()
-            except Exception:
-                pass
+                if conn is not None:
+                    conn.rollback()
+            except psycopg2.Error as rollback_error:
+                print(f"[AUTH] 게스트 유저 롤백 실패: {rollback_error}")
+            try:
+                if cur is not None:
+                    cur.close()
+            except psycopg2.Error as close_error:
+                print(f"[AUTH] 게스트 유저 cursor close 실패: {close_error}")
+            try:
+                if conn is not None:
+                    conn.close()
+            except psycopg2.Error as close_error:
+                print(f"[AUTH] 게스트 유저 connection close 실패: {close_error}")
             print(f"[AUTH] 게스트 유저 생성 오류: {e}")
     return None
 

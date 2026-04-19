@@ -77,13 +77,14 @@ class BithumbClient:
                     if "_" in key and not isinstance(info, dict):
                         prefix, coin = key.split("_", 1)
                         if prefix in {"available", "locked", "in_use", "total"} and coin:
+                            amount = None
                             try:
                                 amount = float(info or 0)
-                            except Exception:
-                                continue
-                            coin_key = coin.upper()
-                            prefixed_totals[coin_key] = prefixed_totals.get(coin_key, 0.0) + amount
-                            continue
+                            except (TypeError, ValueError):
+                                amount = None
+                            if amount is not None:
+                                coin_key = coin.upper()
+                                prefixed_totals[coin_key] = prefixed_totals.get(coin_key, 0.0) + amount
                     try:
                         if isinstance(info, dict):
                             available = float(info.get("available", 0) or 0)
@@ -91,8 +92,8 @@ class BithumbClient:
                             bal = available + locked
                         else:
                             bal = float(info or 0)
-                    except Exception:
-                        continue
+                    except (AttributeError, TypeError, ValueError):
+                        bal = 0.0
 
                     if bal > 0:
                         currency_key = str(currency).upper()
@@ -124,6 +125,7 @@ class BithumbClient:
                     if not currency:
                         continue
 
+                    bal = 0.0
                     try:
                         available = float(
                             row.get("available")
@@ -137,8 +139,8 @@ class BithumbClient:
                             or 0
                         )
                         bal = available + locked
-                    except Exception:
-                        continue
+                    except (AttributeError, TypeError, ValueError):
+                        bal = 0.0
 
                     if bal > 0:
                         currency_key = str(currency).upper()

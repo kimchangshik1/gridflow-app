@@ -1,3 +1,4 @@
+import json
 import uuid
 import requests
 from fastapi import APIRouter, HTTPException, Depends
@@ -149,18 +150,21 @@ def get_positions(user=Depends(get_current_user)):
             symbols = [r[0] for r in rows]
             ticker_map = {}
             if symbols:
+                ticker_rows = []
                 try:
                     r2 = req2.get("https://api.upbit.com/v1/ticker?markets=" + ",".join(symbols), timeout=5)
-                    for t in r2.json():
+                    ticker_rows = r2.json()
+                except (requests.RequestException, ValueError, TypeError):
+                    ticker_rows = []
+                for t in ticker_rows:
+                    if isinstance(t, dict):
                         ticker_map[t["market"]] = float(t.get("trade_price", 0))
-                except Exception:
-                    pass
             korean_map = {}
             try:
                 kr = req2.get("https://api.upbit.com/v1/market/all?isDetails=false", timeout=5)
                 korean_map = {m["market"]: m.get("korean_name", "") for m in kr.json()}
-            except Exception:
-                pass
+            except (requests.RequestException, ValueError, TypeError):
+                korean_map = {}
             positions = []
             for row in rows:
                 symbol, buy_amt, qty, sold_qty = row
@@ -217,12 +221,15 @@ def get_positions(user=Depends(get_current_user)):
     for i in range(0, len(symbols), 100):
         chunk = symbols[i:i+100]
         markets = ",".join(chunk)
+        ticker_rows = []
         try:
             r = requests.get(f"https://api.upbit.com/v1/ticker?markets={markets}", timeout=5)
-            for t in r.json():
+            ticker_rows = r.json()
+        except (requests.RequestException, ValueError, TypeError):
+            ticker_rows = []
+        for t in ticker_rows:
+            if isinstance(t, dict):
                 ticker_map[t["market"]] = t
-        except Exception:
-            pass
     positions = []
     for currency, b in balances.items():
         if currency == "KRW":
@@ -606,12 +613,13 @@ def get_activity(user=Depends(get_current_user), limit: int = 50):
             logs.append(log)
         for r in audit_rows:
             status_ko = "주문 한도 초과"
+            detail = {}
             try:
                 detail = json.loads(r[2]) if r[2] else {}
                 if detail.get("current") is not None and detail.get("max") is not None:
                     status_ko += f" ({detail.get('current')}/{detail.get('max')})"
-            except Exception:
-                pass
+            except (TypeError, ValueError, json.JSONDecodeError):
+                detail = {}
             logs.append({
                 "at": str(r[3]),
                 "event_type": "audit",
@@ -631,6 +639,9 @@ def get_activity(user=Depends(get_current_user), limit: int = 50):
     except Exception as e:
         print(f"[ACTIVITY] 조회 오류: {e}")
         return {"logs": []}
+
+
+@router.get("/price/{symbol}")
 def get_price(symbol: str, user=Depends(get_current_user)):
     price = client.get_current_price(symbol)
     if price is None:

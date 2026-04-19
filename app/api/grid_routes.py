@@ -348,10 +348,9 @@ def stop_strategy(strategy_id: int, user=Depends(get_current_user)):
 
     # 5. 취소 성공 주문 DB 갱신
     if cancelled_ids:
-        placeholders = ','.join(['%s'] * len(cancelled_ids))
         cur.execute(
-            f"UPDATE grid_orders SET status='CANCELLED', updated_at=NOW() WHERE id IN ({placeholders})",
-            cancelled_ids
+            "UPDATE grid_orders SET status='CANCELLED', updated_at=NOW() WHERE id = ANY(%s)",
+            (cancelled_ids,)
         )
 
     # 6. 전략 상태 STOPPED
