@@ -4850,7 +4850,7 @@ function buildSymbolList(filter='') {
     const sign = s.change_rate > 0 ? '+' : ''
     const id = 'item-' + s.market.replace('-','_')
     const selectedClass = selectedMarket === s.market ? ' selected' : ''
-    return '<div class="symbol-item' + selectedClass + '" id="' + id + '" onclick=\'selectSymbolAndApplyPrice(' + JSON.stringify(s) + ')\'>' +
+    return '<div class="symbol-item' + selectedClass + '" id="' + id + '" data-market="' + s.market + '" onclick=\'selectSymbolAndApplyPrice(' + JSON.stringify(s) + ')\'>' +
       '<div>' +
       '<div class="sym-name">' + (_lang==='ko' ? (s.korean_name||s.market.replace('KRW-','')) : s.market.replace('KRW-','') + '/KRW') + '</div>' +
       '<div class="sym-kr">' + (_lang==='ko' ? s.market.replace('KRW-','') + '/KRW' : '') + '</div>' +
@@ -6116,6 +6116,253 @@ setInterval(function () {
     if (typeof fetchSymbols === 'function') fetchSymbols();
   }
 }, 30000);
+
+(function(){
+  if (window.__visibleSymbolListPriceRefreshInstalled) return;
+  window.__visibleSymbolListPriceRefreshInstalled = true;
+
+  var FAST_REFRESH_MS = 2200;
+  var state = {
+    inflight: false,
+    lastFetchAt: 0,
+    timer: null,
+    seq: 0,
+    appliedSeq: 0,
+    queuedImmediate: false,
+    controller: null
+  };
+
+  function getCurrentExchange(){
+    return ((typeof _exchange !== 'undefined' && _exchange) || window._exchange || 'upbit');
+  }
+
+  function isTradePanelActive(){
+    var layout = document.getElementById('main-layout');
+    return !!layout && layout.style.display !== 'none' && !document.hidden;
+  }
+
+  function clearRefreshTimer(){
+    if (state.timer) {
+      clearTimeout(state.timer);
+      state.timer = null;
+    }
+  }
+
+  function getVisibleSymbolRows(){
+    var list = document.getElementById('symbol-list');
+    if (!list) return [];
+    var listRect = list.getBoundingClientRect();
+    return Array.from(list.querySelectorAll('.symbol-item')).filter(function(row){
+      if (!row || row.hidden || row.style.display === 'none') return false;
+      var st = window.getComputedStyle(row);
+      if (!st || st.display === 'none' || st.visibility === 'hidden') return false;
+      var rect = row.getBoundingClientRect();
+      return rect.bottom >= listRect.top && rect.top <= listRect.bottom;
+    });
+  }
+
+  function getSymbolMap(){
+    var list = Array.isArray(window._symbols) ? window._symbols : [];
+    var map = {};
+    list.forEach(function(item){
+      if (item && item.market) map[item.market] = item;
+    });
+    return map;
+  }
+
+  function applyVisibleRowPrices(){
+    if (!isTradePanelActive()) return;
+    var symbolMap = getSymbolMap();
+    getVisibleSymbolRows().forEach(function(row){
+      var market = String(row.getAttribute('data-market') || '').trim().toUpperCase();
+      var item = symbolMap[market];
+      if (!item) return;
+      var priceEl = row.querySelector('.sym-price');
+      if (!priceEl) return;
+      var cc = item.change_rate > 0 ? 'rise' : item.change_rate < 0 ? 'fall' : 'even';
+      priceEl.textContent = Number(item.trade_price || 0).toLocaleString('ko-KR');
+      priceEl.className = 'sym-price ' + cc;
+    });
+  }
+
+  function scheduleNextRefresh(delay){
+    clearRefreshTimer();
+    if (!isTradePanelActive()) return;
+    state.timer = setTimeout(function(){
+      state.timer = null;
+      refreshVisibleSymbolPricesBulk();
+    }, Math.max(0, Number(delay) || 0));
+  }
+
+  function requestImmediateRefresh(opts){
+    var options = opts || {};
+    if (!isTradePanelActive()) {
+      clearRefreshTimer();
+      return;
+    }
+    if (state.inflight) {
+      if (options.userDriven && state.controller) {
+        try { state.controller.abort(); } catch (e) {}
+        clearRefreshTimer();
+        return;
+      }
+      state.queuedImmediate = true;
+      return;
+    }
+    clearRefreshTimer();
+    refreshVisibleSymbolPricesBulk();
+  }
+
+  window.__requestVisibleSymbolListImmediateRefresh = function(opts){
+    requestImmediateRefresh(opts || { userDriven: true });
+  };
+
+  async function refreshVisibleSymbolPricesBulk(){
+    if (!isTradePanelActive()) {
+      clearRefreshTimer();
+      return;
+    }
+    if (state.inflight) return;
+    state.inflight = true;
+    state.queuedImmediate = false;
+    state.controller = new AbortController();
+    state.seq += 1;
+    var mySeq = state.seq;
+    var exchangeAtStart = String(getCurrentExchange() || 'upbit').toLowerCase();
+    try {
+      var api = exchangeAtStart === 'bithumb' ? '/bapi' : '/api';
+      var requestUrl = api + '/symbols/ranked';
+      var requestOptions = { signal: state.controller.signal };
+      if (exchangeAtStart === 'bithumb') {
+        var clientStartMs = Date.now();
+        var rid = 'bvr-' + clientStartMs + '-' + Math.random().toString(36).slice(2, 8);
+        requestUrl += '?rid=' + encodeURIComponent(rid);
+        requestOptions.headers = {
+          'X-Request-Id': rid,
+          'X-Client-Start-Ms': String(clientStartMs),
+        };
+      }
+      var r = await authFetch(requestUrl, requestOptions);
+      if (!r || !r.ok) return;
+      var d = await r.json();
+      var symbols = Array.isArray(d && d.symbols) ? d.symbols : [];
+      if (!symbols.length) return;
+      if (!isTradePanelActive()) return;
+      if (mySeq < state.appliedSeq) return;
+      if (String(getCurrentExchange() || 'upbit').toLowerCase() !== exchangeAtStart) return;
+
+      window._symbols = symbols;
+      try { _symbols = symbols; } catch (e) {}
+
+      window._koreanMap = {};
+      try { _koreanMap = {}; } catch (e) {}
+      symbols.forEach(function(item){
+        if (!item || !item.market) return;
+        window._koreanMap[item.market] = item.korean_name;
+        try { _koreanMap[item.market] = item.korean_name; } catch (e) {}
+      });
+
+      if (window.__exchangeViewCache && window.__exchangeViewCache[getCurrentExchange()]) {
+        try {
+          window.__exchangeViewCache[getCurrentExchange()].symbols = JSON.parse(JSON.stringify(symbols));
+        } catch (e) {}
+      }
+
+      state.appliedSeq = mySeq;
+      state.lastFetchAt = Date.now();
+      applyVisibleRowPrices();
+    } catch (e) {
+      if (e && (e.name === 'AbortError' || String(e.message || '').toLowerCase().indexOf('abort') > -1)) {
+        return;
+      }
+      console.warn('[VISIBLE-SYMBOL-LIST-PRICE] refresh skipped:', e.message);
+    } finally {
+      state.inflight = false;
+      state.controller = null;
+      if (!isTradePanelActive()) {
+        clearRefreshTimer();
+        return;
+      }
+      if (state.queuedImmediate) {
+        state.queuedImmediate = false;
+        requestImmediateRefresh({ userDriven: true });
+        return;
+      }
+      scheduleNextRefresh(FAST_REFRESH_MS);
+    }
+  }
+
+  function bindDomHooks(){
+    var list = document.getElementById('symbol-list');
+    if (list && !list.__visiblePriceBound) {
+      list.addEventListener('scroll', function(){
+        applyVisibleRowPrices();
+        requestImmediateRefresh({ userDriven: true });
+      }, { passive: true });
+      list.__visiblePriceBound = true;
+    }
+
+    var search = document.getElementById('symbol-search');
+    if (search && !search.__visiblePriceBound) {
+      search.addEventListener('input', function(){
+        setTimeout(applyVisibleRowPrices, 0);
+        requestImmediateRefresh({ userDriven: true });
+      });
+      search.__visiblePriceBound = true;
+    }
+  }
+
+  if (typeof window.fetchSymbols === 'function' && !window.fetchSymbols.__visibleListWrapped) {
+    var oldFetchSymbols = window.fetchSymbols;
+    window.fetchSymbols = async function() {
+      var out = await oldFetchSymbols.apply(this, arguments);
+      state.lastFetchAt = Date.now();
+      bindDomHooks();
+      applyVisibleRowPrices();
+      scheduleNextRefresh(FAST_REFRESH_MS);
+      return out;
+    };
+    window.fetchSymbols.__visibleListWrapped = true;
+  }
+
+  if (typeof window.switchExchange === 'function' && !window.switchExchange.__visibleListWrapped) {
+    var oldSwitchExchange = window.switchExchange;
+    window.switchExchange = function(exchange) {
+      var out = oldSwitchExchange.apply(this, arguments);
+      bindDomHooks();
+      setTimeout(applyVisibleRowPrices, 50);
+      setTimeout(function(){ requestImmediateRefresh({ userDriven: true }); }, 80);
+      return out;
+    };
+    window.switchExchange.__visibleListWrapped = true;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){
+      bindDomHooks();
+      setTimeout(function(){ requestImmediateRefresh({ userDriven: true }); }, 80);
+    }, { once: true });
+  } else {
+    bindDomHooks();
+    setTimeout(function(){ requestImmediateRefresh({ userDriven: true }); }, 80);
+  }
+
+  window.addEventListener('focus', function(){ requestImmediateRefresh({ userDriven: true }); });
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) {
+      if (state.controller) {
+        try { state.controller.abort(); } catch (e) {}
+      }
+      clearRefreshTimer();
+      state.queuedImmediate = false;
+      return;
+    }
+    requestImmediateRefresh({ userDriven: true });
+  });
+  setTimeout(function(){
+    if (isTradePanelActive()) requestImmediateRefresh({ userDriven: true });
+  }, 0);
+})();
 
 /* === TRADE SUMMARY ONLY START === */
 async function refreshTradeSummary() {
@@ -8836,6 +9083,11 @@ function filterExchangeSymbols(rawQuery){
       input.addEventListener(evtName, function(ev){
         ev.stopImmediatePropagation();
         unifiedSearch(input);
+        try {
+          if (typeof window.__requestVisibleSymbolListImmediateRefresh === 'function') {
+            window.__requestVisibleSymbolListImmediateRefresh({ userDriven: true });
+          }
+        } catch (e) {}
       }, true);
     });
   }
@@ -9060,6 +9312,206 @@ function filterExchangeSymbols(rawQuery){
 })();
 </script>
 <!-- ORDER_PANEL_CURRENT_PRICE_BUTTON_V1_END -->
+
+<script>
+(function(){
+  if (window.__selectedSymbolSinglePricePollingInstalled) return;
+  window.__selectedSymbolSinglePricePollingInstalled = true;
+
+  var state = {
+    trade: { timer: null, key: '' },
+    grid: { timer: null, key: '' }
+  };
+
+  function getExchangeApiBase(exchange){
+    return String(exchange || 'upbit').toLowerCase() === 'bithumb' ? '/bapi' : '/api';
+  }
+
+  function formatCurrentPrice(price){
+    var n = Number(price);
+    return (Number.isFinite(n) && n > 0) ? (Math.round(n).toLocaleString('ko-KR') + '원') : '-';
+  }
+
+  function updateSymbolCaches(symbol, price){
+    var n = Number(price);
+    if (!Number.isFinite(n) || n <= 0 || !symbol) return;
+
+    try {
+      if (window._selectedSymbol && window._selectedSymbol.market === symbol) {
+        window._selectedSymbol.trade_price = n;
+        try { _selectedSymbol = window._selectedSymbol; } catch (e) {}
+      }
+    } catch (e) {}
+
+    var targets = [];
+    try { if (Array.isArray(window._symbols)) targets.push(window._symbols); } catch (e) {}
+    try {
+      if (typeof _symbols !== 'undefined' && Array.isArray(_symbols) && targets.indexOf(_symbols) === -1) {
+        targets.push(_symbols);
+      }
+    } catch (e) {}
+
+    targets.forEach(function(list){
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].market === symbol) {
+          list[i].trade_price = n;
+        }
+      }
+    });
+  }
+
+  async function fetchSingleSymbolPrice(exchange, symbol){
+    var r = await authFetch(getExchangeApiBase(exchange) + '/price/' + encodeURIComponent(symbol));
+    if (!r || !r.ok) throw new Error('price_fetch_failed');
+    var d = await r.json();
+    var price = Number(d && d.price);
+    if (!Number.isFinite(price) || price <= 0) throw new Error('invalid_price');
+    return price;
+  }
+
+  function getTradePollingContext(){
+    var layout = document.getElementById('main-layout');
+    var symbol = '';
+    try { symbol = String((window._selectedSymbol && window._selectedSymbol.market) || '').trim().toUpperCase(); } catch (e) {}
+    var exchange = ((typeof _exchange !== 'undefined' && _exchange) || window._exchange || 'upbit');
+    return {
+      active: !!layout && layout.style.display !== 'none' && !!symbol,
+      exchange: String(exchange || 'upbit').toLowerCase(),
+      symbol: symbol
+    };
+  }
+
+  function getGridPollingContext(){
+    var panel = document.getElementById('grid-panel');
+    var form = document.getElementById('grid-create-form');
+    var rightPanel = document.getElementById('grid-right-panel');
+    var symbolEl = document.getElementById('grid-symbol');
+    var exchangeEl = document.getElementById('grid-exchange');
+    var symbol = String(symbolEl ? symbolEl.value || '' : '').trim().toUpperCase();
+    var exchange = String(exchangeEl ? exchangeEl.value || 'upbit' : 'upbit').toLowerCase();
+    return {
+      active: !!panel && panel.style.display !== 'none' && !!form && form.style.display !== 'none' && !!rightPanel && rightPanel.style.display !== 'none' && !!symbol,
+      exchange: exchange,
+      symbol: symbol
+    };
+  }
+
+  function applyTradePrice(symbol, price){
+    if (!symbol) return;
+    updateSymbolCaches(symbol, price);
+
+    var selected = null;
+    try { selected = window._selectedSymbol; } catch (e) {}
+    if (!selected || selected.market !== symbol) return;
+
+    var selPriceEl = document.getElementById('sel-price');
+    if (selPriceEl) selPriceEl.textContent = formatCurrentPrice(price);
+
+    var marketPriceEl = document.getElementById('market-sel-price');
+    if (marketPriceEl) marketPriceEl.textContent = formatCurrentPrice(price);
+
+    var marketBtn = document.getElementById('market-current-price-btn');
+    if (marketBtn) marketBtn.textContent = '현재가: ' + formatCurrentPrice(price);
+
+    var selectedRow = document.getElementById('item-' + symbol.replace('-', '_'));
+    if (selectedRow) {
+      var rowPriceEl = selectedRow.querySelector('.sym-price');
+      if (rowPriceEl) rowPriceEl.textContent = Math.round(Number(price) || 0).toLocaleString('ko-KR');
+    }
+  }
+
+  function applyGridPrice(symbol, price){
+    var currentSymbol = String((document.getElementById('grid-symbol') || {}).value || '').trim().toUpperCase();
+    if (!symbol || currentSymbol !== symbol) return;
+
+    updateSymbolCaches(symbol, price);
+
+    var symbolSearch = String((document.getElementById('grid-symbol-search') || {}).value || '').trim();
+    var symbolEl = document.getElementById('grid-current-price-symbol');
+    var valueEl = document.getElementById('grid-current-price-value');
+    if (symbolEl) symbolEl.textContent = symbolSearch || symbol;
+    if (valueEl) valueEl.textContent = formatCurrentPrice(price);
+  }
+
+  function stopPolling(kind){
+    if (state[kind] && state[kind].timer) {
+      clearInterval(state[kind].timer);
+      state[kind].timer = null;
+    }
+    if (state[kind]) state[kind].key = '';
+  }
+
+  function ensurePolling(kind, ctx, applyFn){
+    if (!ctx.active || !ctx.symbol) {
+      stopPolling(kind);
+      return;
+    }
+
+    var key = ctx.exchange + '|' + ctx.symbol;
+    if (state[kind].timer && state[kind].key === key) return;
+
+    stopPolling(kind);
+    state[kind].key = key;
+
+    async function tick(){
+      var expectedKey = state[kind].key;
+      try {
+        var price = await fetchSingleSymbolPrice(ctx.exchange, ctx.symbol);
+        if (state[kind].key !== expectedKey) return;
+        applyFn(ctx.symbol, price);
+      } catch (e) {}
+    }
+
+    tick();
+    state[kind].timer = setInterval(tick, 1000);
+  }
+
+  function syncSelectedSymbolPricePolling(){
+    if (document.hidden) {
+      stopPolling('trade');
+      stopPolling('grid');
+      return;
+    }
+    ensurePolling('trade', getTradePollingContext(), applyTradePrice);
+    ensurePolling('grid', getGridPollingContext(), applyGridPrice);
+  }
+
+  function wrapForPolling(name){
+    var fn = window[name];
+    if (typeof fn !== 'function' || fn.__singlePricePollingWrapped) return;
+    var wrapped = function(){
+      var result = fn.apply(this, arguments);
+      setTimeout(syncSelectedSymbolPricePolling, 0);
+      setTimeout(syncSelectedSymbolPricePolling, 120);
+      return result;
+    };
+    wrapped.__singlePricePollingWrapped = true;
+    window[name] = wrapped;
+  }
+
+  function installWrappers(){
+    ['switchExchange', 'selectSymbol', 'selectSymbolAndApplyPrice', 'openCreateGrid', 'closeCreateGrid', 'selectGridSymbolById', 'switchGrid'].forEach(wrapForPolling);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){
+      installWrappers();
+      syncSelectedSymbolPricePolling();
+    }, { once: true });
+  } else {
+    installWrappers();
+    syncSelectedSymbolPricePolling();
+  }
+
+  window.addEventListener('load', function(){
+    installWrappers();
+    syncSelectedSymbolPricePolling();
+  }, { once: true });
+
+  document.addEventListener('visibilitychange', syncSelectedSymbolPricePolling);
+  setInterval(syncSelectedSymbolPricePolling, 400);
+})();
+</script>
 
 <script>
 /* GPT_PATCH_STEP12_ORDER_SYNC_FINAL */
