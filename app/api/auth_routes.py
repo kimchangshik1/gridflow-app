@@ -334,19 +334,8 @@ def logout_guest(
         raise HTTPException(401, "세션이 만료됐습니다")
     if not user.get("is_guest"):
         return {"success": True, "guest": False}
-
-    conn = psycopg2.connect(DB_URL)
-    cur = conn.cursor()
-    try:
-        cur.execute("DELETE FROM user_sessions WHERE user_id = %s OR token = %s", (user["user_id"], session))
-        cur.execute("DELETE FROM users WHERE id = %s AND is_guest = TRUE", (user["user_id"],))
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        cur.close()
-        conn.close()
+    if not delete_user(user["user_id"]):
+        raise HTTPException(500, "게스트 세션 정리 실패")
     response.delete_cookie("session")
     return {"success": True, "guest": True}
 

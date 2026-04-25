@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0 -- /home/ubuntu/upbit_bot/venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/ubuntu/upbit_bot
+plugins: anyio-4.12.1
+collecting ... collected 13 items
+
+tests/integration/test_auth_flow.py::test_login_me_logout_cookie_session_flow PASSED [  7%]
+tests/integration/test_auth_flow.py::test_guest_session_reports_guest_mode_and_cleans_up PASSED [ 15%]
+tests/integration/test_auth_flow.py::test_dry_run_user_login_reports_dry_mode PASSED [ 23%]
+tests/integration/test_dca_cycle.py::test_dca_one_cycle_live_bithumb_submit_path PASSED [ 30%]
+tests/integration/test_emergency_stop_release.py::test_emergency_backend_pause_resume_blocks_and_reenables_cycles PASSED [ 38%]
+tests/integration/test_grid_cycle.py::test_grid_one_cycle_live_upbit_submit_path PASSED [ 46%]
+tests/integration/test_manual_orders_bithumb.py::test_bithumb_manual_buy_live_request_and_gateway_submit PASSED [ 53%]
+tests/integration/test_manual_orders_bithumb.py::test_bithumb_manual_sell_live_request_and_gateway_submit PASSED [ 61%]
+tests/integration/test_manual_orders_upbit.py::test_upbit_manual_buy_live_request_and_gateway_submit PASSED [ 69%]
+tests/integration/test_manual_orders_upbit.py::test_upbit_manual_sell_live_request_and_gateway_submit PASSED [ 76%]
+tests/integration/test_mode_and_api_keys.py::test_api_key_save_and_masked_readback PASSED [ 84%]
+tests/integration/test_mode_and_api_keys.py::test_saved_api_keys_apply_per_user_and_exchange PASSED [ 92%]
+tests/integration/test_rebalancing_cycle.py::test_rebalancing_threshold_cycle_submits_buy_order PASSED [100%]
+
+============================= 13 passed in 21.64s ==============================
