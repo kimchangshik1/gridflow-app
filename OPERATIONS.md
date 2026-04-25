@@ -9,7 +9,7 @@
 - backup / restore verify
 - health alert
 - monitor 활용
-- 현재 backend control-plane 기준의 stop / release 대응
+- verified backend control path와 documented operational safeguard boundary
 
 ## 일상 점검 항목
 
@@ -78,7 +78,9 @@ health alert는 전략 로직 자체를 대체하지 않습니다. 운영자가 
 
 ## Emergency Control
 
-### 현재 backend 기준으로 가능한 제어
+source of truth: `EMERGENCY_CONTROL_CONTRACT.md`
+
+### verified backend control path
 
 현재 backend control-plane 기준으로 문서화할 수 있는 제어는 아래입니다.
 
@@ -89,20 +91,23 @@ health alert는 전략 로직 자체를 대체하지 않습니다. 운영자가 
 
 이 pause/resume 경로는 integration test로 검증됐습니다. paused 상태에서는 해당 engine one-shot 실행이 submit을 만들지 않고, resume 이후에는 다시 실행 가능한 상태로 돌아갑니다.
 
-### 현재 구조를 정확히 설명해야 하는 점
+### documented operational safeguard
 
-- 전용 backend global emergency release endpoint는 현재 문서화할 수 없습니다.
 - 프론트의 emergency stop UI는 Grid/DCA 전략 목록을 읽은 뒤 각 전략의 pause route로 fan-out 하는 구조입니다.
-- 프론트의 release 동작은 전용 backend release API 호출이 아니라 현재 UI 상태와 strategy resume 절차에 의존합니다.
-
-따라서 buyer-facing 설명은 “pause/resume 기반 control path”로 해야 정확합니다. “독립적인 backend emergency release API가 있다”고 설명하면 현재 코드/테스트와 맞지 않습니다.
-
-### 별도로 존재하는 runtime safeguard
-
-운영 evidence에는 bot runtime의 global emergency stop 흔적이 존재합니다. 다만 이것은 buyer-facing API contract와 동일한 것이 아닙니다. 현재 external docs에서는 아래처럼 구분해서 설명하는 것이 맞습니다.
+- 프론트의 release 동작은 dedicated backend incident release API 호출이 아니라 현재 UI 상태와 strategy resume 절차에 의존합니다.
+- 운영 evidence에는 bot runtime의 global emergency stop 흔적이 존재합니다.
+- `app/monitor/emergency_stop.py`의 runtime safeguard와 `OPERATIONS_EVIDENCE.md`의 stop/reset evidence는 운영 절차 설명 층위에 둡니다.
 
 - backend control path: Grid/DCA pause/resume verified by integration tests
 - runtime safeguard evidence: documented by operations evidence
+
+### not claimed
+
+- dedicated backend emergency release endpoint
+- global incident release as a backend feature
+- full-system one-click recovery contract
+
+따라서 buyer-facing 설명은 “Grid/DCA pause/resume verified path + separate runtime safeguard evidence”로 해야 정확합니다.
 
 ## Monitor as an Operations Aid
 

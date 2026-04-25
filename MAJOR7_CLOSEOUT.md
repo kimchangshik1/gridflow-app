@@ -92,7 +92,7 @@
 | security | `HOLD` | cookie/session, state-change header는 설명 가능하지만 formal CSRF, monitor memory session, multi-instance coherence limitation이 남음 |
 | tests | `PASS` | fresh run 기준 `13 passed in 22.82s` |
 | docs | `PASS` | buyer-facing 문서 9종이 현재 기준으로 충돌 없이 정리됨 |
-| evidence | `HOLD` | `DRY RUN` badge, health alert duplicate suppression, monitor buyer-facing UI, controlled local runtime monitor authenticated proof는 닫혔지만, monitor non-claim boundary와 Rebalancing broader-path evidence는 여전히 남음 |
+| evidence | `HOLD` | `DRY RUN` badge, health alert duplicate suppression, monitor buyer-facing UI, controlled local runtime monitor authenticated proof는 닫혔지만, monitor non-claim boundary와 Rebalancing limitation/structural boundary, optional `rebalance-now` force-path claim boundary는 여전히 남음 |
 
 최종 결론:
 
@@ -118,14 +118,10 @@ recent evidence로 닫힌 항목
 
 아직 남는 soft hold
 
-- Rebalancing `SELL` 미검증
-- Rebalancing `BOTH` 미검증
-- Rebalancing fill-complete 미검증
-- portfolio final reconciliation 미검증
-- Rebalancing은 `positions`를 쓰지 않고 exchange balance sync 기준으로 `current_qty`를 맞춤
-- Rebalancing trigger 총액 기준 vs execution 총액 기준 불일치
-- Rebalancing 제출 후 `current_pct` / `current_value_krw`가 목표 상태 재계산이 아님
-- Rebalancing success path log 부재
+- Rebalancing buyer-facing verified baseline은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle이다.
+- Rebalancing limitation/disclose-only 고정 범위는 `SELL` / `BOTH` / fill-complete / portfolio final reconciliation이다.
+- Rebalancing structural limitation은 `positions` 미사용 / exchange balance sync 기준 `current_qty`, trigger 총액 기준 vs execution 총액 기준 불일치, `current_pct/current_value_krw`의 non-final-state semantics, success-path logging 부재다.
+- optional P1 candidate는 `rebalance-now` force-path verified claim 여부 하나뿐이다.
 - runtime emergency stop narrative vs backend contract gap
   - buyer-facing 정리는 `boundary disclosed but still limited` 수준이다.
   - backend verified 범위는 Grid/DCA `pause-resume`다.
@@ -138,6 +134,7 @@ still not claimed / disclose-only boundary
 - `multi-instance monitor coherence is not claimed`
 - `monitor tier proof is not claimed`
 - dedicated backend emergency release endpoint는 not claimed
+- `rebalance-now` force-path verified claim은 not claimed
 
 ## 7. 다시 파지 말아야 할 것
 
@@ -152,18 +149,18 @@ still not claimed / disclose-only boundary
 - buyer-facing 문서 9종의 baseline 정식화
 - release gate의 6축 판정 프레임
 
-다만 아래는 “확장 검증” 또는 “후속 판단 카드” 영역이지, 위 기본축을 다시 처음부터 파는 일이 아니다.
+다만 아래는 limitation 공개 유지, structural limitation 고정, 또는 좁은 optional 판단 카드 영역이지, 위 기본축을 다시 처음부터 파는 일이 아니다.
 
-- Rebalancing `SELL` / `BOTH`
-- Rebalancing fill-complete / reconciliation
-- `rebalance-now` force path의 별도 판정
+- Rebalancing limitation/disclose-only 고정 범위 유지
+- Rebalancing structural limitation 공개 유지
+- optional `rebalance-now` force path validated claim 판단
 - optional deployed provenance / recipient-side proof 보강 판단
 - emergency control backend contract 명확화
 
 ## 8. 다음 대단원 / P1 추천
 
-1. Rebalancing 후속 판단 카드
-   `SELL` / `BOTH` / `rebalance-now` force path / fill-complete / reconciliation 중 무엇을 실제 제품 범위로 끌어올릴지 결정.
+1. optional rebalance-now force-path validation card
+   stronger manual execution claim이 정말 필요할 때만, `rebalance-now` force path를 auto trigger baseline과 분리된 별도 검증 카드로 좁게 다룬다.
 2. emergency control contract 정리 카드
    verified backend control path는 Grid/DCA `pause-resume`, runtime safeguard evidence는 separate, dedicated backend emergency release endpoint는 not claimed라는 경계를 고정.
 3. optional monitor deployed provenance / durability claim 판단 카드
@@ -185,4 +182,4 @@ GRIDFLOW_TEST_DB_URL="$(sudo -n sed -n 's/^DB_URL=//p' /etc/gridflow/gridflow.en
 
 ## 종료 메모
 
-대단원 7은 “제품이 완전히 닫혔다”는 결론이 아니라, “무엇이 이미 자동 검증과 문서 정식화로 닫혔고, 무엇이 아직 HOLD인지”를 명확히 고정한 라운드다. 다음 작업자는 이 문서를 기준으로 기본축을 다시 파지 말고, 남은 HOLD와 후속 판단 카드만 선택적으로 이어가면 된다.
+대단원 7은 “제품이 완전히 닫혔다”는 결론이 아니라, “무엇이 이미 자동 검증과 문서 정식화로 닫혔고, 무엇이 아직 HOLD인지”를 명확히 고정한 라운드다. 다음 작업자는 이 문서를 기준으로 기본축을 다시 파지 말고, 남은 HOLD와 limitation 경계, optional 판단 카드만 선택적으로 이어가면 된다.

@@ -131,7 +131,8 @@ monitor
 실제 secret 값은 적지 않는다.
 
 - PostgreSQL credential: `rotation required`
-  - git history에 literal exposure가 있었고, current runtime DB password가 그 historically exposed literal과 아직 일치한다.
+  - git history에 literal exposure가 있었지만, 2026-04-25 UTC runtime rotation 후 current runtime password는 그 historically exposed literal과 더 이상 일치하지 않는다.
+  - `gridflow-app`, `upbit-bot`, `orderlens-ops` 재기동, invalid login DB path, key table read, backup, restore verify까지 통과했다.
 - exchange key: `no concrete exposure confirmed`
   - repo current tree/history에서는 key-name reference만 확인됐다.
 - monitor secret/hash: `no concrete exposure confirmed`
@@ -149,4 +150,5 @@ monitor
 - main app는 cookie/session 기반 auth와 공통 state-change 보호선을 가진다.
 - monitor는 별도 로그인 경계와 same-origin mutation guard를 가진다.
 - monitor auth의 남는 문제는 token leakage가 아니라 in-memory session 구조 limitation이다.
-- DB credential rotation은 아직 required 상태다.
+- PostgreSQL credential은 current runtime 기준 `rotated confirmed`다.
+- full history repo는 history exposure 때문에 계속 non-deliverable이다.

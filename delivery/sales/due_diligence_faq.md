@@ -32,7 +32,7 @@
 
 ### 3. buyer가 받는 기본 결과물은 무엇인가요?
 
-설치 가능한 코드와 프론트 자산, 운영 스크립트, 설치/운영/handoff 문서, 기본 smoke check 기준이다. 실제 secret 원문과 내부 debug 자료는 포함되지 않는다.
+설치 가능한 코드와 프론트 자산, 운영 스크립트, 설치/운영/handoff 문서, 기본 smoke check 기준을 담은 clean delivery tarball이다. 실제 secret 원문과 내부 debug 자료, full history repo는 포함되지 않는다.
 
 ## 지원 거래소 / 전략 / 모드
 
@@ -70,7 +70,7 @@ main app, bot, monitor의 기본 기동, nginx/HTTPS/systemd 기본 구성, back
 
 ### 11. 인증은 어떤 구조인가요?
 
-메인 앱은 cookie 기반 세션 구조다. 로그인 성공 시 `session` cookie를 설정하고 `/auth/me` 경로로 세션 복원이 설명된다.
+메인 앱은 cookie 기반 세션 구조다. 로그인 성공 시 `session` cookie를 설정하고 `/auth/me` 경로로 세션 복원이 설명된다. 상태 변경 요청은 `X-GridFlow-State-Change: 1` header를 요구하고, 브라우저가 `Origin` 또는 `Referer`를 보내는 경우 host mismatch는 거절된다. 다만 이것을 formal CSRF token framework로 설명하면 과장이다.
 
 ### 12. API 키는 어떻게 다뤄지나요?
 
@@ -78,7 +78,7 @@ main app, bot, monitor의 기본 기동, nginx/HTTPS/systemd 기본 구성, back
 
 ### 13. monitor 인증은 메인 앱과 같은가요?
 
-같지 않다. 현재 자료 기준 메인 앱은 DB `user_sessions`, monitor는 메모리 세션 경계로 설명된다. 이 이원화 구조는 buyer 실사에서 숨기지 않고 설명해야 하는 `limited` 포인트다.
+같지 않다. 현재 자료 기준 메인 앱은 DB `user_sessions`, monitor는 메모리 세션 경계로 설명된다. monitor mutation은 same-origin guard를 거치지만, 세션이 in-memory라 재시작 시 무효화되고 단일 인스턴스 전제에 가깝다. 이 이원화 구조는 buyer 실사에서 숨기지 않고 설명해야 하는 `limited` 포인트다.
 
 ## 백업 / 복구 / 모니터링
 
@@ -92,7 +92,7 @@ main app, bot, monitor의 기본 기동, nginx/HTTPS/systemd 기본 구성, back
 
 ### 16. monitor는 read-only인가요?
 
-주문/활동/오류/필터 관측 범위는 read-only로 설명 가능하다. 다만 monitor 전체 앱을 완전 read-only라고 단정하면 과장이다.
+주문/활동/오류/필터 관측 범위는 read-only로 설명 가능하다. 다만 monitor 전체 앱에는 login, logout, password change, setup 저장/삭제 같은 mutation route가 있어 완전 read-only라고 단정하면 과장이다.
 
 ## 증거 자료 수준
 
@@ -130,7 +130,7 @@ Grid는 최신 1사이클 근거 1건, DCA는 사용자 키 라우팅이 걸린 
 
 ### 24. emergency stop 근거가 있나요?
 
-있다. 전역 신규 주문 차단 기준 stop 발동 근거와 더 이전 시점의 reset 근거가 각각 있다. 다만 최신 stop과 직접 짝을 이루는 release 증거는 아직 부족하다.
+있다. 다만 두 층을 분리해서 설명해야 한다. buyer-facing verified backend control path는 Grid/DCA `pause` / `resume`이고, 별도로 bot runtime에는 전역 신규 주문 차단 기준 stop evidence와 더 이전 시점의 reset evidence가 documented operational safeguard로 존재한다. dedicated backend emergency release endpoint나 full-system one-click recovery backend feature는 현재 not claimed다.
 
 ## 지원 범위 / 무상 수정 / 유상 대응
 
@@ -150,11 +150,11 @@ Grid는 최신 1사이클 근거 1건, DCA는 사용자 키 라우팅이 걸린 
 
 ### 28. buyer는 전체 repo history까지 받나요?
 
-현재 정책 기준으로는 아니다. 추천 방향은 내부 full repo 유지 + buyer용 clean delivery set 분리다.
+아니다. 현재 정책 기준 full history repo는 `non-deliverable`이다. buyer 기본 전달물은 clean delivery tarball only다. 이유도 숨기지 않는다. history scan 기준 과거 DB credential literal exposure가 있었으므로 full history 자체를 buyer deliverable처럼 설명하지 않는다.
 
 ### 29. 전달 형식은 clean repo인가요 tarball인가요?
 
-현재 확보 자료 기준으로는 `OPEN`이다. clean repo와 tarball 중 최종 형식은 별도 합의가 필요하다.
+현재 기준은 `confirmed`다. buyer 기본 전달 형식은 clean delivery tarball only다. clean/squash repo가 필요하면 별도 diligence artifact로만 다루며, 기본 handoff deliverable로 간주하지 않는다.
 
 ### 30. 데모나 문서 열람 전에 NDA가 필요한가요?
 

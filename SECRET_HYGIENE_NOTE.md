@@ -1,7 +1,7 @@
 ## GridFlow Secret Hygiene Note
 
-이 문서는 2026-04-24 기준 current tree와 git history를 실제로 다시 스캔한 결과만 정리한다.
-runtime secret store(`/etc/gridflow/*`, live DB, external vault) 자체의 회전 완료 여부를 증명하는 문서는 아니다.
+이 문서는 2026-04-25 UTC 기준 current tree / git history scan 결과와, DB credential runtime rotation follow-up까지 함께 정리한다.
+실제 secret 값은 적지 않는다.
 
 ## 1. Current Tree Scan Result
 
@@ -87,15 +87,19 @@ history 판정
 회전 상태 원칙
 
 - repo scan만으로 runtime secret의 현재 값이나 실제 rotation 완료를 증명할 수는 없다.
-- `unknown`은 그대로 남기고, literal exposure가 확인된 항목은 별도 action을 명시해야 한다.
+- 다만 이번 턴은 PostgreSQL credential에 한해 runtime rotation과 post-rotation verification을 별도로 수행했다.
 
 현재 결론
 
 - PostgreSQL credential(`tradingbot / upbit1234`)
   - history literal exposure: `확정`
-  - current runtime reuse: `확정`
-  - rotation completion: `rotation required`
-  - action: current `/etc/gridflow/gridflow.env` 기준 old exposed literal과 동일하므로 즉시 교체가 필요하다.
+  - current runtime reuse: `종료`
+  - rotation completion: `rotated confirmed`
+  - action/result:
+    - `/etc/gridflow/gridflow.env`의 runtime `DB_URL` password를 실제 회전했다.
+    - 회전 후 `gridflow-app`, `upbit-bot`, `orderlens-ops`를 재기동했다.
+    - `/auth/login` invalid credential path는 `401`로 응답했고, key table read와 backup, restore verify도 성공했다.
+    - bool check 기준 `current runtime password == historically exposed literal`는 이제 `false`다.
 - exchange API key / secret
   - repo history literal exposure: `이번 scan 기준 미확정`
   - current runtime presence: `확정`
@@ -130,8 +134,11 @@ buyer 전달 방식 판정
 
 - current tree: `clean delivery only`
 - git history: `unsafe for full-history handoff`
-- rotation evidence: `incomplete in repo evidence`
+- rotation evidence:
+  - PostgreSQL credential: `rotated confirmed`
+  - other runtime secret families: `repo scan alone로 concrete exposure 미확정`
 - buyer-facing safe statement:
   - "clean delivery bundle은 전달 가능"
   - "full history repo는 전달 불가"
-  - "rotation 완료 여부는 별도 운영 증빙이 필요"
+  - "PostgreSQL credential은 현재 runtime 기준 회전 완료가 확인됐다"
+  - "full history repo는 history exposure 때문에 계속 non-deliverable이다"

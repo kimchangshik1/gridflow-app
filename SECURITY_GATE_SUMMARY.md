@@ -5,21 +5,24 @@
 
 ## 1. Secret Hygiene / Delivery Policy
 
-- `HOLD`
+- `KNOWN LIMITATION ACCEPTED`
 - 잠금 결론:
   - buyer deliverable은 clean delivery tarball only다.
   - full history repo는 non-deliverable이다.
   - clean/squash repo는 필요 시 별도 diligence artifact로만 다룬다.
   - history scan 기준 과거 DB credential literal exposure가 있었다는 사실을 숨기지 않는다.
 - closeout matrix:
-  - PostgreSQL credential: `rotation required`
+  - PostgreSQL credential: `rotated confirmed`
   - exchange key: `no concrete exposure confirmed`
   - monitor secret/hash: `no concrete exposure confirmed`
   - webhook URL: `no concrete exposure confirmed`
 - runtime spot-check:
-  - current runtime DB password는 historically exposed literal과 아직 일치한다.
+  - current runtime DB password는 historically exposed literal과 더 이상 일치하지 않는다.
   - current runtime monitor config/auth는 non-empty 값과 password hash를 가진다.
   - current runtime env에는 `GRIDFLOW_ALERT_WEBHOOK_URL`이 설정돼 있다.
+  - pre-rotation backup file과 rollback file location을 확보한 뒤 rotation을 수행했다.
+  - post-rotation에 `gridflow-app`, `upbit-bot`, `orderlens-ops`가 모두 active로 복귀했다.
+  - post-rotation backup dump 생성과 restore verify가 둘 다 성공했다.
 
 ## 2. Auth / Session
 
@@ -67,9 +70,9 @@
 
 ## 5. Final Buyer-Facing Security Disposition
 
-- `STILL HOLD`
+- `READY WITH KNOWN LIMITATIONS`
 - 최종 이유:
   - delivery policy와 mutation coverage는 freeze-ready wording으로 잠겼다.
   - monitor auth는 token leakage HOLD가 아니라 known limitation accepted로 재판정됐다.
-  - 하지만 DB credential rotation required가 아직 남아 있다.
-  - 따라서 이 시점 security disposition은 `READY WITH KNOWN LIMITATIONS`가 아니라 `STILL HOLD`다.
+  - 과거 history literal exposure가 확인된 DB credential은 현재 runtime에서 실제 회전됐고, runtime reuse도 닫혔다.
+  - 남는 제약은 full history repo non-deliverable, monitor in-memory session limitation, formal CSRF token framework 부재 같은 known limitation이다.

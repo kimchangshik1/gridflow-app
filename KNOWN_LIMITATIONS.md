@@ -16,17 +16,22 @@ buyer-facing 해석:
 
 ## 2. Rebalancing은 positions를 쓰지 않고 exchange balances로 `current_qty`를 sync합니다
 
+- buyer-facing verified baseline은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle입니다.
+- 이 범위에서 확인된 것은 `current_qty` sync, threshold read, submit path, strategy/asset snapshot update입니다.
+- `SELL` / `BOTH` / fill-complete / final reconciliation은 현재 limitation/disclose-only 범위입니다.
 - 현재 rebalancing 경로는 `positions`를 기준으로 실행되지 않습니다.
 - `current_qty`는 exchange `get_balances()` 결과를 기준으로 맞춰집니다.
 
 buyer-facing 해석:
 
+- verified baseline 밖의 항목을 “조금만 더 검증하면 바로 풀릴 범위”처럼 설명하면 안 됩니다.
 - rebalancing 설명에서 `positions`와 `current_qty`를 같은 의미로 취급하면 안 됩니다.
 
 ## 3. Rebalancing의 trigger 기준과 execution 기준 총액이 일치하지 않습니다
 
 - trigger 판정은 coin-side 비중 계산을 기준으로 읽힙니다.
 - 실제 주문 크기 계산은 KRW를 포함한 총액 기준을 사용합니다.
+- 이 차이는 단순 validation 추가로 닫히는 evidence gap이 아니라 현재 구조 의미를 그대로 공개해야 하는 항목입니다.
 
 buyer-facing 해석:
 
@@ -37,6 +42,7 @@ buyer-facing 해석:
 
 - 성공 cycle 이후에도 asset row의 `current_pct`, `current_value_krw`는 최종 목표 포트폴리오 상태를 의미하지 않을 수 있습니다.
 - 현재 구현은 실행 시점 snapshot 성격이 더 강합니다.
+- 이 항목은 evidence 두께보다 snapshot semantics의 문제로 보는 것이 정확합니다.
 
 buyer-facing 해석:
 
@@ -46,22 +52,24 @@ buyer-facing 해석:
 
 - 현재 success path는 `rebalancing_orders`와 strategy/asset field update가 핵심 증거입니다.
 - manual order처럼 activity/audit/state log가 풍부하게 남는 구조가 아닙니다.
+- 이 항목은 단순 validation 부족이 아니라 logging seam 자체가 얇은 구조 limitation입니다.
 
 buyer-facing 해석:
 
 - rebalancing 성공 판정은 response 하나보다 DB row와 strategy field update를 함께 봐야 합니다.
 - 감사용 trail의 두께는 manual order보다 약합니다.
 
-## 6. Emergency release는 전용 backend endpoint가 아닙니다
+## 6. Emergency control contract는 Grid/DCA pause/resume으로 제한됩니다
 
-- 현재 buyer-facing backend control path는 Grid/DCA pause/resume 중심입니다.
+- 현재 buyer-facing verified backend control path는 Grid/DCA pause/resume 중심입니다.
 - 프론트의 emergency stop은 전략별 pause fan-out 구조입니다.
-- 전용 backend emergency release endpoint를 문서화할 수 없습니다.
+- dedicated backend emergency release endpoint는 not claimed입니다.
+- runtime safeguard/recovery narrative는 `EMERGENCY_CONTROL_CONTRACT.md`와 운영 evidence에 별도로 문서화돼 있으며, unified backend control contract처럼 읽으면 안 됩니다.
 
 buyer-facing 해석:
 
-- emergency control은 “pause/resume 대응 구조”로 이해하는 것이 정확합니다.
-- global release API가 있다고 가정하면 현재 제품 설명과 어긋납니다.
+- emergency control은 `Grid/DCA pause-resume verified path + separate operational safeguard`로 이해하는 것이 정확합니다.
+- full-system one-click recovery contract나 global release API가 있다고 가정하면 현재 제품 설명과 어긋납니다.
 
 ## 7. Monitor는 별도 auth boundary와 memory session 한계를 가집니다
 
@@ -86,8 +94,10 @@ buyer-facing 해석:
 
 ## 9. Evidence coverage는 기능별로 두께가 다릅니다
 
-- auth, API key, manual order, Grid/DCA one-cycle, pause/resume, Rebalancing BUY_ONLY one-cycle은 integration test가 있습니다.
-- monitor UI, `DRY RUN` 일반 로그인 배지, Rebalancing `SELL` / `BOTH`, fill-complete verification은 제한적이거나 별도 증거 수준입니다.
+- auth, API key, manual order, Grid/DCA one-cycle, pause/resume, Rebalancing trigger-reading `run_once()` path의 `BUY_ONLY` one-cycle은 integration test가 있습니다.
+- Rebalancing `SELL` / `BOTH` / fill-complete / final reconciliation은 현재 limitation/disclose-only 범위입니다.
+- Rebalancing에서 optional P1 candidate가 꼭 하나 필요하다면 `rebalance-now` force path만 별도로 검토하는 것이 맞습니다.
+- monitor UI와 `DRY RUN` 일반 로그인 배지처럼 buyer-facing capture 두께가 다른 항목이 있어도, 그것을 곧바로 backend verified scope와 같은 뜻으로 읽으면 안 됩니다.
 
 buyer-facing 해석:
 

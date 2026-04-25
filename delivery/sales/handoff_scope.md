@@ -34,8 +34,10 @@ GridFlow의 기본 거래 기준선은 설치형 제품의 전달, 초기 기동
 현재 자료 기준 전달 경계는 아래와 같다.
 
 - `confirmed`: clean delivery set은 “실행에 필요한 최소 파일 + buyer-facing 문서 + sanitized 설정 예시” 방향으로 정리돼 있다.
-- `limited`: buyer 전달 기본 형식을 clean repo로 할지 tarball로 할지는 아직 최종 확정되지 않았다.
-- `limited`: sanitized env sample, systemd/nginx 예시 문서를 어떤 형태로 고정할지는 아직 정책 검토가 남아 있다.
+- `confirmed`: buyer 전달 기본 형식은 clean delivery tarball only다.
+- `confirmed`: full history repo는 전달 범위에 포함되지 않는다.
+- `confirmed`: history scan 기준 과거 DB credential literal exposure가 있었고, 이 사실은 buyer-facing diligence에서 숨기지 않는다.
+- `confirmed`: clean/squash repo는 요청 시 별도 diligence artifact로만 다루며 기본 handoff deliverable이 아니다.
 - `blocked`: 실제 운영 secret, `.env`, `.upbit_bot_key`, `/etc/gridflow/*` 원본, backup dump, 내부 debug artifact는 전달 범위에 포함되지 않는다.
 
 ## 2) 무료 결함 수정 범위
@@ -88,6 +90,7 @@ GridFlow의 기본 거래 기준선은 설치형 제품의 전달, 초기 기동
 - `confirmed`: 고객 계정 보안 운영과 API 키 lifecycle 관리 대행
 - `confirmed`: 외부 인프라의 지속 운영 책임
 - `confirmed`: 내부 full repo history, 내부 evidence 원본, debug 메모, patch, 백업 원본, raw 운영 로그 전체 전달
+- `confirmed`: clean/squash repo는 필요 시 별도 diligence artifact로만 다루며 기본 handoff deliverable이 아니다.
 
 현재 buyer-facing 설명에서 숨기지 말아야 할 제한도 함께 둔다.
 
@@ -113,4 +116,3 @@ buyer가 직접 관리해야 하는 항목은 아래와 같다.
 
 - OPEN: warranty window와 maintenance term은 아직 고정되지 않았다.
 - OPEN: SLA와 response-time commitment는 아직 고정되지 않았다.
-- OPEN: buyer delivery 기본 형식은 clean repo와 tarball 사이에서 아직 최종 확정되지 않았다.

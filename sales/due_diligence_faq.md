@@ -130,7 +130,7 @@ Grid는 최신 1사이클 근거 1건, DCA는 사용자 키 라우팅이 걸린 
 
 ### 24. emergency stop 근거가 있나요?
 
-있다. 전역 신규 주문 차단 기준 stop 발동 근거와 더 이전 시점의 reset 근거가 각각 있다. 다만 최신 stop과 직접 짝을 이루는 release 증거는 아직 부족하다.
+있다. 다만 두 층을 분리해서 설명해야 한다. buyer-facing verified backend control path는 Grid/DCA `pause` / `resume`이고, 별도로 bot runtime에는 전역 신규 주문 차단 기준 stop evidence와 더 이전 시점의 reset evidence가 documented operational safeguard로 존재한다. dedicated backend emergency release endpoint나 full-system one-click recovery backend feature는 현재 not claimed다.
 
 ## 지원 범위 / 무상 수정 / 유상 대응
 

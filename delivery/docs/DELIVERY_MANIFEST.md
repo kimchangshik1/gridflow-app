@@ -50,6 +50,7 @@ buyer-facing docs
   - `D_OPERATIONS_RUNBOOK.txt`
   - `MONITOR_RUN_GUIDE.txt`
   - `MONITOR_DELIVERY_CHECKLIST.txt`
+  - `DELIVERY_POLICY.md`
   - `DELIVERY_MANIFEST.md`
   - `EVIDENCE_VISIBILITY_LOCK.md`
 
@@ -72,7 +73,21 @@ install structure
 
 sales materials
 - 포함 위치: `delivery/sales/`
-- 포함 원칙: existing buyer-facing sales/diligence 문서만 재배치
+- 포함 파일:
+  - `one_pager.md`
+  - `demo_script.md`
+  - `pricing_options.md`
+  - `due_diligence_faq.md`
+  - `nda_template.md`
+  - `handoff_scope.md`
+  - `evidence_show_now_bundle_index.md`
+  - `evidence_one_pager.md`
+  - `guest_sandbox_proof_bundle.md`
+  - `evidence_package_master_index.md`
+  - `evidence_diligence_bundle_index.md`
+  - `evidence_delivery_manifest.md`
+  - `evidence_gap_register.md`
+  - `evidence_capture_checklist.md`
 - 제외 원칙: internal closeout, unlock backlog, safe-capture 내부 메모는 staging tree에 넣지 않음
 
 evidence payload
@@ -100,6 +115,7 @@ evidence payload
 요청 시만 보내는 drill-down set
 - `delivery/evidence/diligence_only/GRIDFLOW_RELEASE_EVIDENCE.txt`
 - `delivery/evidence/diligence_only/STRATEGY_EVIDENCE.md`
+- `delivery/evidence/diligence_only/evidence_diligence_bundle_index.md`
 - `delivery/evidence/diligence_only/evidence_gap_register.md`
 - `delivery/evidence/diligence_only/evidence_delivery_manifest.md`
 - `delivery/evidence/diligence_only/raw/INDEX.md`

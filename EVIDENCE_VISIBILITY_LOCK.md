@@ -3,7 +3,7 @@
 상태
 - 대단원 4 구조 재사용
 - 대단원 8에서 새 taxonomy 추가 없이 visibility만 잠금
-- security HOLD가 남아 있으므로 evidence visibility lock은 final freeze 선언이 아니다
+- security P0 blocker는 닫혔고, 이번 문서는 pre-freeze package lock 기준선만 유지한다
 
 1. show_now
 

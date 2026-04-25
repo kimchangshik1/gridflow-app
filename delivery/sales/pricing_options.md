@@ -1,7 +1,7 @@
 # GridFlow Pricing Options
 
 기준
-- 작성 기준: 2026-04-21 UTC
+- 작성 기준: 2026-04-25 UTC
 - 원칙: 숫자는 확정 근거가 없으면 쓰지 않음
 - 상태 표기: `confirmed` / `limited` / `blocked`
 - 기준선 문서: `sales/handoff_scope.md`
@@ -51,13 +51,15 @@
   one-pager, demo script, handoff scope, due diligence FAQ 포함
 - `confirmed`: 설치 경로, 서비스 구조, 운영 점검 포인트의 상세 handoff
 - `confirmed`: 결함 여부 판단을 위한 초기 질의응답 범위를 상대적으로 넓게 잡는 구조
-- `limited`: clean repo / tarball 최종 형식은 별도 합의가 필요하다.
+- `confirmed`: buyer 기본 전달 형식은 clean delivery tarball only다.
 
 제외
 - `confirmed`: 24/7 운영 대행
 - `confirmed`: 수익 보장, 매매 판단 대행
 - `confirmed`: 거래소 정책 변경 상시 대응
 - `confirmed`: 신규 기능 추가, UI 취향 수정, 전략 로직 변경
+- `confirmed`: full history repo 직접 전달
+- `confirmed`: clean/squash repo 기본 handoff deliverable 취급
 
 지원 기간
 - `OPEN`: 저장소 문서에는 warranty window와 maintenance term 숫자 근거가 없다.
@@ -151,6 +153,12 @@
 - 매매 판단 대행
 - 거래소 정책 변경 상시 대응
 - buyer가 변경한 서버/코드/설정의 무상 복구
+- full history repo 직접 전달
+
+세 안 모두 전달 형식은 아래로 잠근다.
+
+- `confirmed`: 기본 deliverable은 clean delivery tarball only
+- `confirmed`: clean/squash repo는 요청 시 diligence artifact only
 
 세 안 모두 아래 제한은 숨기지 않는다.
 

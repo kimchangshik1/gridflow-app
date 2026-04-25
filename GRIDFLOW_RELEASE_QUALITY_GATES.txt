@@ -15,7 +15,7 @@ GRIDFLOW RELEASE QUALITY GATES
   - buyer-facing 문서 9종은 현재 기준으로 서로 충돌 없이 정리돼 `PASS`다.
   - 그러나 ops, security, evidence 축에는 외부 설명 기준으로 아직 남겨야 할 `HOLD`가 있다.
   - recent evidence로 `DRY RUN` 일반 로그인 배지, health alert duplicate suppression, monitor buyer-facing UI evidence, controlled local runtime 기준 monitor authenticated runtime proof는 닫혔다.
-  - 남은 핵심 HOLD는 controlled local runtime proof를 이미 가진 monitor 축에서 deployed live operator provenance not yet captured, session durability / multi-instance coherence / tier proof not claimed, Rebalancing broader-path evidence, 그리고 runtime safeguard와 buyer-facing backend contract 사이의 경계다.
+  - 남은 핵심 HOLD는 controlled local runtime proof를 이미 가진 monitor 축에서 deployed live operator provenance not yet captured, session durability / multi-instance coherence / tier proof not claimed, Rebalancing limitation/disclose-only 고정 범위와 structural limitation, optional `rebalance-now` force-path claim boundary, 그리고 runtime safeguard와 buyer-facing backend contract 사이의 경계다.
 
 최근 evidence 재판정
 
@@ -55,10 +55,9 @@ softened but still HOLD
   - dedicated backend emergency release endpoint 부재와 runtime safeguard != backend contract 경계는 계속 남는다.
 
 unchanged HOLD
-- Rebalancing `SELL`/`BOTH`
-- Rebalancing fill-complete
-- portfolio final reconciliation
-- Rebalancing known limitation
+- Rebalancing limitation/disclose-only 고정 범위 (`SELL`/`BOTH`/fill-complete/final reconciliation)
+- Rebalancing structural limitation (`positions/current_qty/current_value_krw` semantics, trigger/execution total mismatch, success-path logging)
+- optional `rebalance-now` force-path claim boundary
 - monitor memory session / multi-instance coherence limitation
 
 1. 확인한 입력 문서/증거 목록
@@ -184,9 +183,10 @@ evidence
   - health alert duplicate suppression direct proof도 recent evidence로 닫혔다.
   - monitor buyer-facing UI와 controlled local runtime 기준 authenticated runtime proof는 recent evidence로 닫혔다.
   - 다만 authenticated runtime proof exists in controlled local runtime라고만 적는 것이 정확하고, deployed live operator provenance not yet captured, restart 후 session durability not proven, multi-instance coherence not proven, tier proof not yet captured 상태는 여전히 evidence claim 범위 밖이다.
-  - Rebalancing `SELL`/`BOTH` evidence가 없다.
-  - Rebalancing fill-complete evidence와 portfolio final reconciliation evidence가 없다.
-  - Rebalancing known limitation이 buyer-facing evidence에서 완전히 닫히지 않았다.
+  - Rebalancing buyer-facing verified baseline은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle이다.
+  - Rebalancing `SELL`/`BOTH`/fill-complete/final reconciliation은 현재 limitation/disclose-only 고정 범위이며, 현재 release에서 evidence backlog처럼 취급하지 않는다.
+  - `rebalance-now`는 force path 운영 evidence가 문서화돼 있지만, stronger verified claim은 optional이며 not claimed 상태다.
+  - Rebalancing structural limitation은 buyer-facing evidence boundary로 계속 남는다.
     - `positions` 미사용 / exchange balance sync 기준
     - trigger 총액 기준 vs execution 총액 기준 불일치
     - `current_pct` / `current_value_krw`가 목표 상태 재계산이 아님
@@ -215,16 +215,15 @@ evidence
   - raw SQL / session boundary limitation을 계속 공개해야 한다.
 - evidence:
   - monitor deployed provenance / session durability / multi-instance / tier claim boundary
-  - Rebalancing `SELL`/`BOTH`
-  - Rebalancing fill-complete
-  - portfolio final reconciliation
-  - Rebalancing success path log 부재
+  - Rebalancing limitation/disclose-only 고정 범위 (`SELL`/`BOTH`/fill-complete/final reconciliation)
+  - optional `rebalance-now` force-path verified claim boundary
+  - Rebalancing structural limitation (`positions/current_qty/current_value_krw` semantics, trigger/execution total mismatch, success-path logging)
   - runtime emergency stop narrative vs backend contract gap
 
 6. FAIL 근거
 
 - 현재 갱신 기준에서 즉시 `FAIL`로 내려야 할 축은 없다.
-- 다만 전체 gate는 `PASS`가 아니라 `HOLD`다. 이유는 tests/docs가 좋아졌더라도 monitor deployed provenance와 session durability / multi-instance / tier non-claim, Rebalancing broader-path limitation, emergency control contract boundary 같은 외부 설명 한계가 자동 해소되지는 않기 때문이다.
+- 다만 전체 gate는 `PASS`가 아니라 `HOLD`다. 이유는 tests/docs가 좋아졌더라도 monitor deployed provenance와 session durability / multi-instance / tier non-claim, Rebalancing limitation/disclose-only 고정 범위와 structural limitation, optional `rebalance-now` force-path claim boundary, emergency control contract boundary 같은 외부 설명 한계가 자동 해소되지는 않기 때문이다.
 
 7. external release blocker 또는 remaining HOLD
 
@@ -248,7 +247,9 @@ evidence
   - multi-instance monitor coherence is not claimed
   - monitor tier proof is not claimed
   - Rebalancing 검증은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle까지다.
+  - Rebalancing `SELL` / `BOTH` / fill-complete / final reconciliation은 현재 limitation/disclose-only 범위다.
   - `rebalance-now`는 force path로 trigger를 우회한다.
+  - `rebalance-now` force-path verified claim은 optional이며 현재 not claimed다.
   - Rebalancing은 `positions`를 쓰지 않고 exchange balances로 `current_qty`를 sync한다.
   - Rebalancing trigger 총액 기준과 execution 총액 기준은 일치하지 않는다.
   - `current_pct` / `current_value_krw`는 목표 상태 재계산이 아니다.
@@ -262,6 +263,7 @@ evidence
   - multi-instance monitor coherence
   - monitor tier proof
   - Rebalancing `SELL`/`BOTH`/fill-complete/final reconciliation verified claim
+  - `rebalance-now` force-path verified claim
 - 다음 추가 evidence가 진짜 필요한지:
   - `DRY RUN` 일반 로그인 배지와 health alert duplicate suppression은 현재 기준으로 더 모을 필요가 없다.
   - monitor 기본 UI/authenticated runtime 존재 proof도 현재 기준으로 더 모을 필요가 없다.
@@ -270,4 +272,4 @@ evidence
 
 8. 왜 아직 과장하면 안 되는지
 
-현재 기준에서 tests와 docs는 분명히 좋아졌고, monitor buyer-facing UI와 controlled local runtime authenticated runtime proof도 확보됐다. 그러나 이것만으로 전체 release를 `PASS`로 올리면, deployed live operator provenance not yet captured와 session durability / multi-instance coherence / tier non-claim, Rebalancing broader-path limitation, emergency control contract boundary를 buyer-facing으로 숨기게 된다. 즉 지금 남은 `HOLD`는 “무엇을 아직 주장하지 않는지”를 계속 고지해야 한다는 성격의 `HOLD`다.
+현재 기준에서 tests와 docs는 분명히 좋아졌고, monitor buyer-facing UI와 controlled local runtime authenticated runtime proof도 확보됐다. 그러나 이것만으로 전체 release를 `PASS`로 올리면, deployed live operator provenance not yet captured와 session durability / multi-instance coherence / tier non-claim, Rebalancing limitation/disclose-only 고정 범위와 structural limitation, optional `rebalance-now` force-path claim boundary, emergency control contract boundary를 buyer-facing으로 숨기게 된다. 즉 지금 남은 `HOLD`는 “무엇을 아직 주장하지 않는지”를 계속 고지해야 한다는 성격의 `HOLD`다.

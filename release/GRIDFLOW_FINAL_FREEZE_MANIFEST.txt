@@ -1,0 +1,65 @@
+GridFlow Final Freeze Manifest
+
+Freeze timestamp (UTC)
+- 2026-04-25T05:06:43Z
+
+Source tree basis
+- repo root: `/home/ubuntu/upbit_bot`
+- branch at freeze time: `fix/symbol-map-fallback`
+- base commit at freeze time: `d6f4ec5`
+- outbound artifact basis: current working tree `delivery/` outbound subset only
+
+Outbound artifact
+- tarball: `release/gridflow_buyer_final_freeze_20260425.tar.gz`
+- tarball root directory: `gridflow_buyer_final_freeze_20260425/`
+- checksum file: `release/SHA256SUMS.txt`
+- sha256: `5fcdb8f6c0fe6abfa10ff946fe4d36533e08390615b23e5d15166a3ea6d7665c`
+
+Included in outbound tarball
+- `app/` (46 files)
+- `static/` (21 files)
+- `ops/` (37 files)
+- `alembic/` (3 files)
+- `docs/` (21 files)
+- `install/` (18 files)
+- `sales/` (14 files)
+- `evidence/show_now/` (6 files)
+- top-level files:
+  - `alembic.ini`
+  - `requirements-web.txt`
+
+Core buyer-facing docs present in tarball
+- `docs/README.md`
+- `docs/DEPLOYMENT.md`
+- `docs/SECURITY.md`
+- `docs/SUPPORT_SCOPE.md`
+- `docs/DELIVERY_POLICY.md`
+- `docs/DELIVERY_MANIFEST.md`
+- `sales/one_pager.md`
+- `sales/demo_script.md`
+- `sales/pricing_options.md`
+- `sales/due_diligence_faq.md`
+- `sales/nda_template.md`
+- `sales/handoff_scope.md`
+
+Excluded from outbound tarball
+- `delivery/evidence/diligence_only/`
+- all `internal_hold` items listed in `docs/EVIDENCE_VISIBILITY_LOCK.md`
+- runtime secrets and runtime-only config originals
+  - `.env`
+  - `.upbit_bot_key`
+  - `/etc/gridflow/*`
+- backup, restore dump, archive, temp, debug, and log artifacts
+- repo history and full `.git/`
+- `release/` artifacts themselves
+
+Visibility lock at freeze
+- `show_now`: included in outbound tarball at `evidence/show_now/`
+- `diligence_only`: frozen but not in outbound tarball; request-only material
+- `internal_hold`: not bundled; visibility policy retained as documentation only
+
+Interpretation
+- outbound tarball is the first buyer-send package
+- clean delivery tarball only is the deliverable
+- full history repo is non-deliverable
+- clean/squash repo is diligence artifact only on request

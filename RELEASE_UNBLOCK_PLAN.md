@@ -67,11 +67,9 @@
 
 ### unchanged HOLD
 
-- Rebalancing `SELL`
-- Rebalancing `BOTH`
-- Rebalancing fill-complete
-- portfolio final reconciliation
-- Rebalancing positions/current_qty/current_pct/current_value semantics
+- Rebalancing limitation/disclose-only 고정: `SELL` / `BOTH` / fill-complete / portfolio final reconciliation
+- optional Rebalancing P1 candidate: `rebalance-now` force path 별도 validation 여부
+- Rebalancing structural limitation: `positions/current_qty/current_pct/current_value_krw` semantics, trigger/execution total mismatch, success-path logging
 - monitor memory session / multi-instance coherence limitation
 
 ## 4. active HOLD 항목 분류표
@@ -80,14 +78,9 @@
 | --- | --- | --- | --- | --- | --- |
 | backend emergency release 전용 endpoint 부재 | `B` | 현재 제품은 pause/resume 대응 구조로 설명 가능하므로 hard blocker는 아니다. 다만 없는 endpoint를 있는 것처럼 말하면 즉시 문제다. | 사고 대응 방식에 대한 오해, 구매 후 통제 기대 불일치 | `Medium` | control-plane 설명 일관성 |
 | current control path = Grid/DCA pause-resume 대응 구조 | `B` | 이것은 결함보다 현재 계약 경계다. 정확히 공개하면 출고 가능하다. | “전역 stop/release 제품”으로 오인 | `Low` | README/API/OPERATIONS 일관성 유지 |
-| Rebalancing `SELL` 미검증 | `B` | 현재 README/SUPPORT_SCOPE에서 limited로 둘 수 있으므로 hard blocker는 아니다. | buyer가 Rebalancing 전체 축이 같은 강도로 검증됐다고 오해 | `Medium` | rebalancing 범위 문구 유지 |
-| Rebalancing `BOTH` 미검증 | `B` | 위와 동일. 현재 범위 밖으로 명시하면 출고 가능하다. | live 운용 시 unsupported path 기대 | `Medium` | rebalancing 범위 문구 유지 |
-| Rebalancing fill-complete 미검증 | `B` | 1 cycle decision/submit까지만 검증했다고 이미 좁혀 설명 가능하다. | 체결 완료와 후속 상태 반영까지 보장된다고 오해 | `Medium` | rebalancing 범위 문구 유지 |
-| portfolio final reconciliation 미검증 | `B` | 현재 제품 설명을 decision/submit 수준으로 제한하면 hard blocker는 아니다. | 리밸런싱 후 최종 포트폴리오 정렬이 검증된 것으로 오해 | `Medium` | rebalancing 범위 문구 유지 |
-| Rebalancing positions 미사용 / balance sync 기준 | `D` | 구조 문제다. 현재는 limitation으로 공개 가능하지만, 없애려면 설계 변경이 필요하다. | holdings 해석 오류, 운영자 오판 | `High` | rebalancing model 재정의 |
-| trigger 총액 기준 vs execution 총액 기준 불일치 | `D` | 코드/데이터 모델 정합성 이슈다. 당장 문서화는 가능하지만 수정은 구조 작업이다. | trigger와 주문 금액 차이에 대한 신뢰 저하 | `High` | strategy logic 변경, 검증 재작성 |
-| `current_pct/current_value_krw` 목표 상태 재계산 아님 | `D` | snapshot semantics 문제다. evidence 보강으로 해결되지 않는다. | 리밸런싱 완료 상태를 잘못 해석 | `High` | post-submit recalculation 설계 |
-| Rebalancing success path log 부재 | `D` | audit trail 자체가 얇다. 해결하려면 프로덕션 로깅 seam 추가가 필요하다. | 운영 감사와 추적성 기대 불일치 | `Medium` | app/engine logging 변경 |
+| Rebalancing limitation/disclose-only 고정 항목 (`SELL/BOTH/fill-complete/final reconciliation`) | `B` | scope decision상 이 항목들은 “곧 풀릴 backlog”가 아니라 현재 출고 범위 밖 limitation이다. verified baseline은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle로 유지하면 된다. | buyer가 Rebalancing 전체 축이 같은 강도로 검증됐다고 오해 | `Low` | rebalancing wording discipline |
+| optional Rebalancing P1 candidate = `rebalance-now` force path | `C` | route와 운영 evidence는 있지만 auto trigger baseline과 섞을 필요는 없다. stronger manual execution claim이 꼭 필요할 때만 좁게 검토하면 된다. | force path를 verified baseline처럼 오해 | `Low` | force-path wording, STRATEGY_EVIDENCE |
+| Rebalancing structural limitation (`positions/current_qty/current_pct/current_value_krw` semantics, trigger/execution total mismatch, success-path logging) | `D` | evidence 부족이 아니라 semantics/logging/model 문제다. validation을 조금 더 추가해도 buyer-facing 의미가 크게 좋아지지 않는다. | holdings/state/audit 해석 오류 | `High` | rebalancing model/logging redesign |
 | monitor deployed live operator provenance / tier proof 미확보 | `C` | controlled local runtime 기준 authenticated runtime proof exists. 남은 것은 deployed live operator provenance와 tier proof 두께이며, hard blocker는 아니다. | buyer가 현재 proof를 “운영 계정으로 배포 인스턴스에 직접 로그인한 증거”나 tier-validated proof로 오해 | `Low` | safe deployed capture 또는 provenance note |
 | monitor memory session / multi-instance coherence limitation | `D` | 현 single-instance install-and-handoff 모델에서는 공개 limitation으로 관리 가능하다. controlled local runtime proof와 별개로, 구조적으로 풀려면 세션 저장소 재설계가 필요하다. | scale-out 오해, 운영 구조 오판 | `High` | monitor auth/session redesign |
 | runtime emergency stop narrative vs backend contract gap | `B` | alignment note로 boundary disclosed 상태까지는 정리됐다. 남은 이슈의 본질은 evidence 부족보다 contract 경계를 넘겨 말하지 않는 일이다. | “runtime safeguard”와 “backend control API”를 혼동 | `Low` | external wording discipline |
@@ -116,10 +109,8 @@
 - monitor session durability across restart is not claimed
 - multi-instance monitor coherence is not claimed
 - monitor tier proof is not claimed
-- Rebalancing `SELL` 미검증
-- Rebalancing `BOTH` 미검증
-- Rebalancing fill-complete 미검증
-- portfolio final reconciliation 미검증
+- Rebalancing buyer-facing verified baseline = trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle
+- Rebalancing limitation/disclose-only 고정 범위 = `SELL` / `BOTH` / fill-complete / portfolio final reconciliation
 
 이 항목들은 “수정 없이는 출고 불가”가 아니라 “잘못 팔면 출고 불가”다.
 
@@ -127,11 +118,12 @@
 
 아래 항목은 buyer demo, due diligence, handoff 신뢰도를 높이기 위한 증거 보강 영역이다.
 
+- optional: `rebalance-now` force path validation if a stronger manual execution claim is actually needed
 - optional: monitor deployed live operator provenance capture
 - optional: health alert recipient-side delivery proof
 - optional: latest stop/reset pair를 더 직접 보여주는 sanitized 운영 extract
 
-이 항목들은 코드 수정 없이도 일부 HOLD를 더 줄일 수는 있다. 다만 monitor 기본 UI/runtime existence proof는 이미 닫혔고, 여기 남은 것은 deployed provenance와 tier 두께다.
+이 항목들은 코드 수정 없이도 일부 HOLD를 더 줄일 수는 있다. 다만 Rebalancing에서 optional P1 candidate는 `rebalance-now` force path 하나뿐이며, `SELL/BOTH/fill-complete/final reconciliation`은 backlog가 아니라 limitation으로 고정한다. monitor 쪽에서도 기본 UI/runtime existence proof는 이미 닫혔고, 남은 것은 deployed provenance와 tier 두께다.
 
 ## 8. 구조 수정 없이는 어려운 목록
 
@@ -143,7 +135,7 @@
 - Rebalancing success path log 부재
 - monitor memory session / multi-instance coherence limitation
 
-이 항목들은 “지금 release unblock을 위해 바로 고칠 것”보다 “후속 제품 카드로 분리할 것”이 맞다.
+이 항목들은 optional P1 validation 대상이 아니라 구조 limitation이다. “지금 release unblock을 위해 바로 고칠 것”보다 “후속 제품 카드로 분리할 것”이 맞다.
 
 ## 9. 최소 unblock next 3 tasks
 
@@ -156,14 +148,14 @@
 - 이유:
   이 축은 추가 raw보다 contract discipline이 더 중요하다.
 
-### 2. Rebalancing evidence scope decision card
+### 2. optional rebalance-now force-path validation card
 
 - 목적:
-  남은 외부 soft hold 중 가장 두꺼운 축을 evidence 보강 대상으로 둘지, disclose-only limitation으로 계속 둘지 제품 차원에서 빨리 결정한다.
+  stronger manual execution claim이 정말 필요할 때만, `rebalance-now` force path를 auto trigger baseline과 분리된 별도 검증 카드로 좁게 다룬다.
 - 산출물:
-  `SELL/BOTH/fill-complete/final reconciliation`의 제품 주장 범위 결정 1건
+  `rebalance-now` verified claim 여부 결정 1건
 - 이유:
-  monitor 다음으로 큰 남은 HOLD가 여기 있기 때문이다.
+  Rebalancing scope decision상 optional P1 candidate는 이 항목 하나뿐이며, `SELL/BOTH/fill-complete/final reconciliation`은 backlog가 아니라 limitation이기 때문이다.
 
 ### 3. optional monitor deployed provenance capture
 
@@ -196,6 +188,7 @@
 - multi-instance monitor coherence
 - monitor tier proof
 - Rebalancing `SELL/BOTH/fill-complete/final reconciliation` verified claim
+- `rebalance-now` force-path verified claim
 
 ## 12. 다음 추가 evidence가 진짜 필요한지
 
@@ -225,7 +218,7 @@
 
 - monitor deployed live operator provenance / session durability claim
 - runtime emergency stop narrative vs backend contract story
-- Rebalancing broader-path evidence
+- optional `rebalance-now` force-path verified claim
 
 ### 구조 수정 없이는 풀기 어려운 항목
 
@@ -238,4 +231,4 @@
 
 실무 해석:
 
-현재 전체 gate가 아직 `HOLD`인 이유는 monitor authenticated runtime proof나 기본 UI evidence가 없어서가 아니다. 그 축은 controlled local runtime 기준으로 닫혔다. 남은 HOLD는 deployed live operator provenance와 restart/session durability, multi-instance coherence, tier proof를 아직 주장하지 않는다는 경계, Rebalancing broader-path evidence 미검증, 그리고 emergency control contract를 pause/resume 범위 밖으로 넓혀 말하면 안 된다는 점 때문이다.
+현재 전체 gate가 아직 `HOLD`인 이유는 monitor authenticated runtime proof나 기본 UI evidence가 없어서가 아니다. 그 축은 controlled local runtime 기준으로 닫혔다. 남은 HOLD는 deployed live operator provenance와 restart/session durability, multi-instance coherence, tier proof를 아직 주장하지 않는다는 경계, Rebalancing limitation/disclose-only 고정 범위와 optional `rebalance-now` force-path claim boundary, 그리고 emergency control contract를 pause/resume 범위 밖으로 넓혀 말하면 안 된다는 점 때문이다.
