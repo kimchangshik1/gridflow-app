@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from urllib.parse import urlparse
+
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
 from app.api.bithumb_routes import router as bithumb_router
@@ -27,6 +29,53 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Upbit Bot", lifespan=lifespan)
+
+_STATE_CHANGE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_PROTECTED_PREFIXES = ("/api", "/bapi", "/config", "/auth", "/grid", "/dca", "/backtest", "/rebalancing")
+_STATE_CHANGE_HEADER = "X-GridFlow-State-Change"
+_STATE_CHANGE_HEADER_VALUE = "1"
+
+
+def _has_origin_context(request: Request) -> bool:
+    return any((request.headers.get(header_name) or "").strip() for header_name in ("origin", "referer"))
+
+
+def _is_same_origin_state_change(request: Request) -> bool:
+    expected_host = (request.headers.get("host") or "").strip().lower()
+    if not expected_host:
+        return False
+
+    for header_name in ("origin", "referer"):
+        raw_value = (request.headers.get(header_name) or "").strip()
+        if not raw_value:
+            continue
+        parsed = urlparse(raw_value)
+        if parsed.scheme not in ("http", "https"):
+            continue
+        if parsed.netloc.lower() == expected_host:
+            return True
+    return False
+
+
+@app.middleware("http")
+async def protect_state_change_requests(request: Request, call_next):
+    if request.method in _STATE_CHANGE_METHODS and request.url.path.startswith(_PROTECTED_PREFIXES):
+        header_value = request.headers.get(_STATE_CHANGE_HEADER)
+        if header_value != _STATE_CHANGE_HEADER_VALUE:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "상태 변경 요청 검증에 실패했습니다"},
+            )
+        # Browser-originated mutations should not cross hosts. Non-browser callers without
+        # Origin/Referer still rely on the existing custom-header contract.
+        if _has_origin_context(request) and not _is_same_origin_state_change(request):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "요청 출처 검증에 실패했습니다"},
+            )
+    return await call_next(request)
+
+
 app.include_router(router, prefix="/api")
 app.include_router(bithumb_router, prefix="/bapi")
 app.include_router(config_router, prefix="/config")

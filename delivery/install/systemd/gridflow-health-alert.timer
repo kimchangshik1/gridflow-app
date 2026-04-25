@@ -1,0 +1,11 @@
+[Unit]
+Description=Run GridFlow basic health alert check
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=5m
+Persistent=true
+Unit=gridflow-health-alert.service
+
+[Install]
+WantedBy=timers.target

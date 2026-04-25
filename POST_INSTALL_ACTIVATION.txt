@@ -1,0 +1,39 @@
+POST_INSTALL_ACTIVATION
+
+Script Path
+- `/home/ubuntu/upbit_bot/ops/post_install_activate.sh`
+
+Dry-Run Example
+```bash
+bash ops/post_install_activate.sh
+```
+
+Execute Example
+```bash
+sudo bash ops/post_install_activate.sh --execute
+```
+
+Activation Targets
+- Services:
+  - `gridflow-app.service`
+  - `upbit-bot.service`
+  - `orderlens-ops.service`
+- Timers:
+  - `gridflow-pg-backup.timer`
+  - `gridflow-health-alert.timer`
+- Nginx:
+  - `nginx -t`
+  - `systemctl reload nginx`
+
+Service / Timer Split
+- `enable`:
+  - app/bot/monitor services
+  - backup/health-alert timers
+- `restart`:
+  - app/bot/monitor services
+- `start`:
+  - backup/health-alert timers
+
+Turn Scope
+- This turn created the activation script and verified dry-run output only.
+- No live `systemctl`, `restart`, `start`, `daemon-reload`, `nginx -t`, or `reload nginx` was executed.

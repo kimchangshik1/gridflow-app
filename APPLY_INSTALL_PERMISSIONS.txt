@@ -1,0 +1,32 @@
+APPLY_INSTALL_PERMISSIONS
+
+Purpose
+- Apply owner/group/mode policy to rendered install payload files that already exist under a target root.
+- This does not copy files and does not run `systemctl` or `nginx` commands.
+
+Manifest Format
+- JSON array of objects
+- Required keys per entry:
+  - `path`: relative path under target root
+  - `owner`: target owner name
+  - `group`: target group name
+  - `mode`: octal file mode string such as `0644`
+
+Usage
+```bash
+python3 ops/apply_install_permissions.py --target-root /tmp/gridflow_apply_test --dry-run
+sudo -n python3 ops/apply_install_permissions.py --target-root /tmp/gridflow_apply_test
+python3 ops/apply_install_permissions.py --target-root / --allow-live-root --dry-run
+```
+
+Arguments
+- `--manifest`: permission manifest file. Default is `ops/install_permissions.json`
+- `--target-root`: required destination root
+- `--dry-run`: print planned permission changes without writing
+- `--allow-live-root`: required if `--target-root /` is used
+
+Safety
+- Applying to `/` is blocked unless `--allow-live-root` is passed.
+- Fails if a manifest target file is missing.
+- Fails if a parent directory is missing.
+- Fails if an owner or group from the manifest does not exist on the current system.

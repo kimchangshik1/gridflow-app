@@ -1,0 +1,246 @@
+GridFlow Delivery Bundle Manifest
+
+Generated: 2026-04-24T08:47:23Z
+Bundle Name: gridflow_delivery_20260424
+Tarball: gridflow_delivery_20260424.tar.gz
+Bundle Root: gridflow_delivery_20260424/
+
+1. Policy Summary
+- canonical repo-tracked set: included
+- bundle-only proof set: included under proof/
+- excluded set: omitted from staging tree and tarball
+
+2. Top-level Structure
+- API.md: API surface summary
+- ARCHITECTURE.md: runtime and component structure
+- CHANGELOG.md: buyer-facing release changes
+- DELIVERY_MANIFEST.md: delivery composition policy reference
+- DELIVERY_POLICY.md: canonical vs proof vs excluded policy
+- DEPLOYMENT.md: install and deployment baseline
+- DOC_CONSISTENCY_CHECK.md: doc consistency cross-check note
+- DOC_MAPPING.md: doc-to-scope mapping
+- KNOWN_LIMITATIONS.md: current open limits and holds
+- MAJOR6_CLOSEOUT.md: release closeout note
+- OPERATIONS.md: operational procedures
+- README.md: product overview and support baseline
+- SECURITY.md: current security posture and boundaries
+- SUPPORT_SCOPE.md: delivery/support boundary
+- alembic/: schema migration files
+- alembic.ini: alembic configuration entrypoint
+- app/: backend, auth, exchange, strategy, monitor runtime code
+- ops/: install, deploy, backup, restore, service templates
+- proof/: bundle-only proof and diligence materials
+- requirements-web.txt: python web/runtime dependency list
+- static/: main UI, monitor UI, frontend assets
+
+3. Bundle-only Proof Contents
+- proof/AUTH_MODE_EVIDENCE.md
+- proof/CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt
+- proof/CLEAN_VM_TRANSFER_BUNDLE_PROOF.txt
+- proof/DB_BOOTSTRAP.txt
+- proof/GRIDFLOW_RELEASE_EVIDENCE.txt
+- proof/LOCAL_INSTALL_PIPELINE_PROOF.txt
+- proof/LOCAL_INSTALL_PIPELINE_PROOF_FULL.txt
+- proof/MANUAL_ORDER_EVIDENCE.md
+- proof/OPERATIONS_EVIDENCE.md
+- proof/RESTORE_PROOF.txt
+- proof/STRATEGY_EVIDENCE.md
+- proof/evidence/: raw evidence archive
+- proof/sales/: diligence and buyer collateral bundle
+
+4. Excluded by Policy
+- .git/, .github/, .codex, CLAUDE*
+- _install_render*
+- venv/, __pycache__/, *.pyc, test-results/, tests/, .pytest_cache/
+- raw .env, .upbit_bot_key, raw secret files
+- *.bak, index_v*, patch/debug/export temp artifacts not required for runtime
+- *.log, *.log.*, *.dump, *.tar.gz, *.sha256, nohup.out*
+
+5. File Counts
+- total files in bundle root: 183
+- files under proof/: 60
+
+6. Full File Listing
+API.md
+ARCHITECTURE.md
+CHANGELOG.md
+DELIVERY_MANIFEST.md
+DELIVERY_POLICY.md
+DEPLOYMENT.md
+DOC_CONSISTENCY_CHECK.md
+DOC_MAPPING.md
+KNOWN_LIMITATIONS.md
+MAJOR6_CLOSEOUT.md
+OPERATIONS.md
+README.md
+SECURITY.md
+SUPPORT_SCOPE.md
+alembic.ini
+alembic/env.py
+alembic/versions/.gitkeep
+alembic/versions/20260420_01_live_public_baseline.py
+app/__init__.py
+app/api/__init__.py
+app/api/auth_routes.py
+app/api/backtest_routes.py
+app/api/bithumb_routes.py
+app/api/config_routes.py
+app/api/dca_routes.py
+app/api/grid_routes.py
+app/api/monitor_routes.py
+app/api/rebalancing_routes.py
+app/api/routes.py
+app/api/validation.py
+app/auth/__init__.py
+app/auth/auth.py
+app/auth/dependencies.py
+app/bot.py
+app/bot_manager.py
+app/core/__init__.py
+app/core/cache.py
+app/core/config.py
+app/core/crypto.py
+app/db/__init__.py
+app/db/database.py
+app/db/models.py
+app/db/order_manager.py
+app/exchange/__init__.py
+app/exchange/bithumb_client.py
+app/exchange/bithumb_reconciler.py
+app/exchange/reconciler.py
+app/exchange/upbit_client.py
+app/exchange/websocket_client.py
+app/main.py
+app/monitor/__init__.py
+app/monitor/auth.py
+app/monitor/emergency_stop.py
+app/monitor/product_app.py
+app/monitor/repo.py
+app/monitor/routes.py
+app/monitor/tier.py
+app/strategy/__init__.py
+app/strategy/backtest_engine.py
+app/strategy/bithumb_order_gateway.py
+app/strategy/dca_engine.py
+app/strategy/grid_engine.py
+app/strategy/order_gateway.py
+app/strategy/rebalancing_engine.py
+ops/apply_install_payload.py
+ops/apply_install_permissions.py
+ops/build_clean_vm_transfer_bundle.sh
+ops/capture_clean_vm_first_execute.sh
+ops/clean_install_first_execute.sh
+ops/deploy_source_tree.sh
+ops/generate_monitor_password_hash.py
+ops/gridflow-health-alert.service
+ops/gridflow-health-alert.timer
+ops/gridflow-pg-backup.service
+ops/gridflow-pg-backup.timer
+ops/gridflow.logrotate
+ops/gridflow_health_alert.sh
+ops/gridflow_pg_backup.sh
+ops/gridflow_pg_restore_verify.sh
+ops/install_permissions.json
+ops/post_install_activate.sh
+ops/post_install_smoke_check.sh
+ops/pre_install_preflight.py
+ops/prepare_app_runtime.sh
+ops/prepare_clean_vm_db.sh
+ops/render_install_payload.py
+ops/run_clean_vm_live_install.sh
+ops/templates/gridflow-app.service
+ops/templates/gridflow-health-alert.service
+ops/templates/gridflow-health-alert.timer
+ops/templates/gridflow-pg-backup.service
+ops/templates/gridflow-pg-backup.timer
+ops/templates/gridflow.env.template
+ops/templates/gridflow.logrotate
+ops/templates/install_values.example.json
+ops/templates/install_values.rehearsal.json
+ops/templates/monitor_auth.json.template
+ops/templates/monitor_config.json.template
+ops/templates/nginx.gridflow.conf
+ops/templates/orderlens-ops.service
+ops/templates/upbit-bot.service
+proof/AUTH_MODE_EVIDENCE.md
+proof/CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt
+proof/CLEAN_VM_TRANSFER_BUNDLE_PROOF.txt
+proof/DB_BOOTSTRAP.txt
+proof/GRIDFLOW_RELEASE_EVIDENCE.txt
+proof/LOCAL_INSTALL_PIPELINE_PROOF.txt
+proof/LOCAL_INSTALL_PIPELINE_PROOF_FULL.txt
+proof/MANUAL_ORDER_EVIDENCE.md
+proof/OPERATIONS_EVIDENCE.md
+proof/RESTORE_PROOF.txt
+proof/STRATEGY_EVIDENCE.md
+proof/evidence/raw/INDEX.md
+proof/evidence/raw/auth/dry_run_mode_auth_me.json
+proof/evidence/raw/auth/dry_run_mode_badge.png
+proof/evidence/raw/auth/dry_run_mode_context.png
+proof/evidence/raw/auth_mode_triptych_capture.js
+proof/evidence/raw/manual/guest_sandbox_db_extract.txt
+proof/evidence/raw/manual/guest_sandbox_position_db_bridge.txt
+proof/evidence/raw/ops/backup_dump_presence.txt
+proof/evidence/raw/ops/emergency_stop_release_pair_trace.txt
+proof/evidence/raw/ops/health_alert_excerpt.txt
+proof/evidence/raw/ops/health_alert_suppression_check.txt
+proof/evidence/raw/ops/restore_verify_excerpt.txt
+proof/evidence/raw/screenshots/auth/auth_login_error_result.json
+proof/evidence/raw/screenshots/auth/auth_logout_refresh_result.json
+proof/evidence/raw/screenshots/auth/auth_mode_triptych_capture_result.json
+proof/evidence/raw/screenshots/auth/guest_mode_badge.png
+proof/evidence/raw/screenshots/auth/live_badge_capture_result.json
+proof/evidence/raw/screenshots/auth/live_badge_direct_register_result.json
+proof/evidence/raw/screenshots/auth/live_mode_badge.png
+proof/evidence/raw/screenshots/auth/login_error_invalid_credentials.png
+proof/evidence/raw/screenshots/auth/logout_overlay_return.png
+proof/evidence/raw/screenshots/auth/refresh_session_result.png
+proof/evidence/raw/screenshots/manual/bithumb_guest_buy_result.png
+proof/evidence/raw/screenshots/manual/bithumb_guest_position_before_after.png
+proof/evidence/raw/screenshots/manual/bithumb_guest_sandbox_result.json
+proof/evidence/raw/screenshots/manual/bithumb_guest_sell_result.png
+proof/evidence/raw/screenshots/manual/upbit_guest_buy_result.png
+proof/evidence/raw/screenshots/manual/upbit_guest_position_before_after.png
+proof/evidence/raw/screenshots/manual/upbit_guest_sandbox_result.json
+proof/evidence/raw/screenshots/manual/upbit_guest_sell_result.png
+proof/sales/auth_capture_harness.md
+proof/sales/demo_script.md
+proof/sales/due_diligence_faq.md
+proof/sales/evidence_capture_checklist.md
+proof/sales/evidence_delivery_manifest.md
+proof/sales/evidence_diligence_bundle_index.md
+proof/sales/evidence_gap_register.md
+proof/sales/evidence_internal_hold_bundle_index.md
+proof/sales/evidence_one_pager.md
+proof/sales/evidence_pack_closeout.md
+proof/sales/evidence_package_master_index.md
+proof/sales/evidence_show_now_bundle_index.md
+proof/sales/evidence_unlock_backlog.md
+proof/sales/guest_sandbox_proof_bundle.md
+proof/sales/handoff_scope.md
+proof/sales/nda_template.md
+proof/sales/one_pager.md
+proof/sales/pricing_options.md
+proof/sales/safe_capture_path_note.md
+requirements-web.txt
+static/css/main.css
+static/favicon.ico
+static/gridflow_patch.css
+static/index.html
+static/js/admin.js
+static/js/admin_runtime.js
+static/js/auth.js
+static/js/common.js
+static/js/core/common.js
+static/js/exchange.js
+static/js/exchange_runtime.js
+static/js/home.js
+static/js/monitor.js
+static/js/portfolio.js
+static/js/settings_runtime.js
+static/js/simulation.js
+static/js/strategy.js
+static/monitor.html
+static/monitor_home.html
+static/monitor_login.html
+static/monitor_setup.html

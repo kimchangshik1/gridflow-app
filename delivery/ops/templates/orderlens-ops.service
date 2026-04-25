@@ -1,0 +1,36 @@
+[Unit]
+Description=OrderLens Ops
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{MONITOR_USER}}
+Group={{MONITOR_GROUP}}
+PermissionsStartOnly=true
+WorkingDirectory={{APP_DIR}}
+EnvironmentFile={{ENV_FILE}}
+Environment=GRIDFLOW_ENV_FILE={{ENV_FILE}}
+Environment=MONITOR_CONFIG_PATH={{MONITOR_CONFIG_PATH}}
+Environment=MONITOR_AUTH_PATH={{MONITOR_AUTH_PATH}}
+ExecStartPre=/usr/bin/install -d -o root -g {{MONITOR_GROUP}} -m 3770 {{CONFIG_DIR}}
+ExecStartPre=/bin/bash -lc 'if [ ! -e {{MONITOR_CONFIG_PATH}} ]; then /usr/bin/install -o root -g {{MONITOR_GROUP}} -m 0660 /dev/null {{MONITOR_CONFIG_PATH}}; fi; /bin/chown root:{{MONITOR_GROUP}} {{MONITOR_CONFIG_PATH}}; /bin/chmod 0660 {{MONITOR_CONFIG_PATH}}'
+ExecStartPre=/bin/bash -lc 'if [ ! -e {{MONITOR_AUTH_PATH}} ]; then /usr/bin/install -o root -g {{MONITOR_GROUP}} -m 0660 /dev/null {{MONITOR_AUTH_PATH}}; fi; /bin/chown root:{{MONITOR_GROUP}} {{MONITOR_AUTH_PATH}}; /bin/chmod 0660 {{MONITOR_AUTH_PATH}}'
+ExecStart={{VENV_PYTHON}} -m uvicorn app.monitor.product_app:app --host {{MONITOR_BIND_HOST}} --port {{MONITOR_BIND_PORT}}
+Restart=always
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=10
+
+StandardOutput=append:{{MONITOR_LOG_FILE}}
+StandardError=append:{{MONITOR_LOG_FILE}}
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths={{APP_DIR}}
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

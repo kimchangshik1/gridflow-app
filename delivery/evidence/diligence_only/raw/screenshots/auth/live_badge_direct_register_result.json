@@ -1,0 +1,13 @@
+{
+  "started_at": "2026-04-20T08:07:38.240Z",
+  "base_url": "https://gridflow.co.kr/",
+  "shot": "live_mode_badge.png",
+  "blocker": null,
+  "masked_username": "cod***40",
+  "register_status": 200,
+  "login_status": 200,
+  "login_label_text": "cod***40 LIVE",
+  "live_badge_text": "LIVE",
+  "error_text": null,
+  "finished_at": "2026-04-20T08:07:44.271Z"
+}

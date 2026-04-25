@@ -1,0 +1,107 @@
+RESTORE_PROOF
+
+Measured at: 2026-04-20 UTC
+Scope: restore verification plus post-restore read-only functional smoke using one real backup file and temporary databases only
+
+1. Selected Backup File
+
+- Path: `/var/backups/gridflow/upbit_bot_20260420_032935.dump`
+- File name: `upbit_bot_20260420_032935.dump`
+- Size: `2453883` bytes
+- Modified at: `2026-04-20 03:29:36.9597393180 UTC`
+
+2. Executed Commands
+
+```bash
+sudo -n /home/ubuntu/upbit_bot/ops/gridflow_pg_restore_verify.sh /var/backups/gridflow/upbit_bot_20260420_032935.dump
+sudo -n -u postgres createdb -O tradingbot gridflow_restore_smoke_20260420_070200
+sudo -n bash -lc 'PGPASSWORD=<DB_PASSWORD> pg_restore -h 127.0.0.1 -U tradingbot --no-owner --no-acl --dbname=gridflow_restore_smoke_20260420_070200 < /var/backups/gridflow/upbit_bot_20260420_032935.dump'
+/home/ubuntu/upbit_bot/venv/bin/python - <<'PY'
+# temp DB-level smoke + isolated main app smoke + isolated monitor smoke
+PY
+/home/ubuntu/upbit_bot/venv/bin/python - <<'PY'
+# DROP DATABASE IF EXISTS gridflow_restore_smoke_20260420_070200
+PY
+```
+
+3. Success / Failure
+
+- Restore verify script result: success
+- Functional smoke result: success
+
+4. Temporary DB Used
+
+- restore-verify temp DB: `gridflow_restore_verify_20260420_064555`
+- functional-smoke temp DB: `gridflow_restore_smoke_20260420_070200`
+
+5. Cleanup Result
+
+- restore-verify temp DB:
+  script cleanup path is `trap cleanup EXIT`
+  post-run query found no `gridflow_restore_verify_%` names
+- functional-smoke temp DB:
+  dropped after smoke via `DROP DATABASE IF EXISTS gridflow_restore_smoke_20260420_070200`
+  post-drop metadata query returned count `0`
+
+6. DB-Level Smoke Result
+
+- `users` query: success, row count `78`
+- `grid_strategies` query: success, row count `1`
+- `dca_strategies` query: success, row count `2`
+- `rebalancing_strategies` query: success, row count `2`
+- `planned_orders` recent row query: success
+  first row: `id=95`, `symbol=KRW-USDT`, `status=FILLED`, `created_at=2026-04-18 09:54:53.779608+00:00`
+- `activity_logs` recent row query: success
+  first row: `id=46515`, `event_type=strategy`, `status=PAUSED`, `created_at=2026-04-19 08:08:12.200004+00:00`
+
+7. Main App Isolated Smoke Result
+
+- Isolation method:
+  `DB_URL` set to temp DB only
+  app started in-process via direct ASGI invocation with lifespan enabled
+- startup result: success
+- `GET /` -> `200`
+- `GET /openapi.json` -> `200`
+
+8. Monitor Isolated Smoke Result
+
+- Isolation method:
+  `DB_URL` set to temp DB only
+  `MONITOR_CONFIG_PATH=/tmp/gridflow_restore_smoke/monitor_config.json`
+  `MONITOR_AUTH_PATH=/tmp/gridflow_restore_smoke/monitor_auth.json`
+  app started in-process via direct ASGI invocation with lifespan enabled
+- startup result: success
+- `GET /monitor` -> `302`
+- redirect location: `/monitor/login`
+- monitor repo recent orders query: success, returned `50` rows
+- monitor repo recent activity query: success, returned `50` rows
+- first recent order:
+  `id=95`, `exchange=bithumb`, `symbol=KRW-USDT`, `status=FILLED`
+- first recent activity:
+  `id=46515`, `event_type=strategy`, `status=PAUSED`, `symbol=KRW-XRP`
+
+9. Confirmed Key Facts
+
+- The selected dump can be restored into a temp DB without touching `upbit_bot`
+- Restore verify still reports `19` public-schema tables and expected key tables
+- After restore with `tradingbot` ownership, DB-level business tables are readable
+- Main FastAPI app can start in-process against the restored temp DB and serves `/` and `/openapi.json`
+- Monitor app can start in-process against the restored temp DB and returns the expected login redirect from `/monitor`
+
+10. Live Unmodified Confirmation
+
+- No restore was performed into the production `upbit_bot` database
+- No live systemd/nginx/service state was changed
+- `/etc/gridflow/monitor_config.json` and `/etc/gridflow/monitor_auth.json` were not modified
+- Monitor smoke used temp JSON files under `/tmp/gridflow_restore_smoke/`
+
+11. Remaining Risks
+
+- This proof verifies one selected dump only, not every retained backup file
+- Functional smoke was in-process only; it did not start live services or run external HTTP over bound ports
+- The first manual temp restore as `postgres` exposed an ownership mismatch for `tradingbot` reads; functional smoke therefore used a second temp restore owned by `tradingbot`
+- `TestClient` could not be used because `httpx` is not installed in the current venv; in-process ASGI invocation was used instead
+
+12. Stop Point
+
+- Stopped after one restore-verify run, one functional-smoke restore run, and cleanup confirmation for both temporary database paths

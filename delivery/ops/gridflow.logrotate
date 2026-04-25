@@ -1,0 +1,18 @@
+/home/ubuntu/upbit_bot/bot.log
+/home/ubuntu/upbit_bot/monitor.log
+/home/ubuntu/upbit_bot/monitor_8010.log
+/home/ubuntu/upbit_bot/monitor_uvicorn.log
+/home/ubuntu/upbit_bot/nohup.out
+/var/log/gridflow_backup.log
+/var/log/gridflow_restore_verify.log
+/var/log/gridflow_alert.log {
+    su root root
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 ubuntu ubuntu
+}

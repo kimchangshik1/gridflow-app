@@ -1,0 +1,34 @@
+POST_INSTALL_SMOKE_CHECK
+
+Script Path
+- `/home/ubuntu/upbit_bot/ops/post_install_smoke_check.sh`
+
+Dry-Run Example
+```bash
+bash ops/post_install_smoke_check.sh
+```
+
+Execute Example
+```bash
+bash ops/post_install_smoke_check.sh --execute
+```
+
+Check Items
+- `systemctl is-enabled gridflow-app.service upbit-bot.service orderlens-ops.service`
+- `systemctl is-active gridflow-app.service upbit-bot.service orderlens-ops.service`
+- `systemctl is-enabled gridflow-pg-backup.timer gridflow-health-alert.timer`
+- `systemctl is-active gridflow-pg-backup.timer gridflow-health-alert.timer`
+- `curl http://127.0.0.1:8000/`
+- `curl http://127.0.0.1:8010/monitor`
+
+Expected State Values
+- app/bot/monitor `is-enabled`: `enabled`
+- app/bot/monitor `is-active`: `active`
+- backup/health-alert timer `is-enabled`: `enabled`
+- backup/health-alert timer `is-active`: `active`
+- `http://127.0.0.1:8000/` -> `200`
+- `http://127.0.0.1:8010/monitor` -> `302`
+
+Turn Scope
+- This turn created the smoke check script and verified dry-run output only.
+- No live `systemctl` or `curl` smoke checks were executed in this turn.

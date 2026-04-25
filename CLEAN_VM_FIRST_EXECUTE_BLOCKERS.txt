@@ -1,0 +1,104 @@
+Clean VM First Execute Blockers
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Decision: current host is not a clean VM candidate
+
+1. Why This Host Is Not A Clean VM
+
+- `/etc/gridflow` already exists on this host.
+- installed systemd units already exist:
+  - `/etc/systemd/system/gridflow-app.service`
+  - `/etc/systemd/system/upbit-bot.service`
+  - `/etc/systemd/system/orderlens-ops.service`
+- installed nginx site already exists:
+  - `/etc/nginx/sites-available/gridflow`
+- current repository root `/home/ubuntu/upbit_bot` is itself an existing GridFlow app directory and was already measured as the live working path in prior baseline/bootstrap documents.
+
+2. Remaining Installation Traces On Current Host
+
+- config/runtime path:
+  - `/etc/gridflow`
+- app service unit:
+  - `/etc/systemd/system/gridflow-app.service`
+- bot service unit:
+  - `/etc/systemd/system/upbit-bot.service`
+- monitor service unit:
+  - `/etc/systemd/system/orderlens-ops.service`
+- nginx site:
+  - `/etc/nginx/sites-available/gridflow`
+- existing app directory:
+  - `/home/ubuntu/upbit_bot`
+
+3. Why First Execute Must Not Run Here
+
+- clean VM evidence would be invalid because install targets under `/etc` and the app path are already populated.
+- activation/smoke on this host would mix new proof with pre-existing services, files, and nginx wiring.
+- a live-root apply on this host risks overwriting or obscuring the currently installed GridFlow state, which is outside this turn's allowed scope.
+
+4. Minimum Inputs Required On A Real Clean VM
+
+- source tree input:
+  - repository checkout or equivalent source bundle
+- values file:
+  - one real install values JSON based on `ops/templates/install_values.example.json`
+- target paths and accounts:
+  - `APP_DIR`
+  - `VENV_PYTHON`
+  - `APP_USER` / `APP_GROUP`
+  - `BOT_USER`
+  - `MONITOR_USER` / `MONITOR_GROUP`
+- runtime config payload values:
+  - `DB_URL`
+  - `MONITOR_EXCHANGE`
+  - `MONITOR_API_KEY`
+  - `MONITOR_API_SECRET`
+  - `MONITOR_PASSWORD_HASH`
+- TLS/nginx values:
+  - `SERVER_NAME`
+  - `SSL_CERT_PATH`
+  - `SSL_KEY_PATH`
+  - bind ports and nginx ports
+- PostgreSQL readiness:
+  - target role/user
+  - target database
+  - local connectivity on the chosen DB URL
+
+5. Command Order To Run On A Real Clean VM
+
+1. Place source tree on the clean VM.
+2. Prepare a real values file from `ops/templates/install_values.example.json`.
+3. Run the orchestrator dry-run:
+```bash
+bash ops/clean_install_first_execute.sh \
+  --source-dir <repo-root> \
+  --target-app-dir <APP_DIR> \
+  --values <values.json> \
+  --target-root /
+```
+4. Run the orchestrator execute path:
+```bash
+bash ops/clean_install_first_execute.sh \
+  --source-dir <repo-root> \
+  --target-app-dir <APP_DIR> \
+  --values <values.json> \
+  --target-root / \
+  --allow-live-root \
+  --execute
+```
+5. If the target DB is empty, apply baseline migration before activation/smoke:
+```bash
+<APP_DIR>/venv/bin/python -m alembic upgrade head
+```
+6. Run activation for real on the clean VM:
+```bash
+bash <APP_DIR>/ops/post_install_activate.sh --execute
+```
+7. Run smoke for real on the clean VM:
+```bash
+bash <APP_DIR>/ops/post_install_smoke_check.sh --execute
+```
+
+6. Stop Point
+
+- Stopped on blocker documentation only.
+- No live install was attempted on this host because it does not satisfy the clean VM precondition.

@@ -1,0 +1,18 @@
+{{APP_DIR}}/bot.log
+{{APP_DIR}}/monitor.log
+{{APP_DIR}}/monitor_8010.log
+{{APP_DIR}}/monitor_uvicorn.log
+{{APP_DIR}}/nohup.out
+/var/log/gridflow_backup.log
+/var/log/gridflow_restore_verify.log
+/var/log/gridflow_alert.log {
+    su root root
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 ubuntu ubuntu
+}

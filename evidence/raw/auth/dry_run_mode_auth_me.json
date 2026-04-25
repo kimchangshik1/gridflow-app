@@ -1,0 +1,19 @@
+{
+  "captured_at_utc": "2026-04-24T08:32:03.464385Z",
+  "capture_type": "general_login_dry_run_badge",
+  "buyer_facing_safe": true,
+  "auth_me": {
+    "username": "drydemo082725",
+    "is_guest": false,
+    "is_dry_run": true,
+    "is_admin": false
+  },
+  "excluded_or_masked_fields": [
+    "session_cookie",
+    "user_id",
+    "password",
+    "api_keys",
+    "balances"
+  ],
+  "note": "Synthetic dedicated normal-login user with DRY RUN enabled. No guest session used."
+}

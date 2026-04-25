@@ -1,0 +1,224 @@
+DEPLOYMENT_BASELINE
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Scope: runtime topology, config paths, ports/proxy, bootstrap-critical values only
+Source policy: file/systemd/nginx/PostgreSQL config inspection only. No guesswork.
+
+1. Services
+
+- gridflow-app
+  Role: main FastAPI web app for GridFlow/Upbit Bot UI and APIs.
+  Entry point: /home/ubuntu/upbit_bot/app/main.py
+  systemd unit: gridflow-app.service
+  Unit file path: /etc/systemd/system/gridflow-app.service
+  ExecStart: /home/ubuntu/upbit_bot/venv/bin/python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+  Bind: 127.0.0.1:8000
+  Environment source: /etc/gridflow/gridflow.env
+  Notes: serves / and mounts /static; includes API routers /api, /bapi, /config, /auth, /grid, /dca, /backtest, /rebalancing.
+
+- upbit-bot
+  Role: background trading bot process; starts websocket, cache refresh, user bot manager, grid/DCA/rebalancing engines.
+  Entry point: /home/ubuntu/upbit_bot/app/bot.py
+  systemd unit: upbit-bot.service
+  Unit file path: /etc/systemd/system/upbit-bot.service
+  ExecStart: /home/ubuntu/upbit_bot/venv/bin/python3 -u -m app.bot
+  Bind: none observed in unit; background worker only
+  Environment source: /etc/gridflow/gridflow.env
+
+- orderlens-ops / monitor
+  Role: monitor web app for order/activity views and local monitor auth/config flow.
+  Entry point: /home/ubuntu/upbit_bot/app/monitor/product_app.py
+  systemd unit: orderlens-ops.service
+  Unit file path: /etc/systemd/system/orderlens-ops.service
+  ExecStart: /home/ubuntu/upbit_bot/venv/bin/python3 -m uvicorn app.monitor.product_app:app --host 127.0.0.1 --port 8010
+  Bind: 127.0.0.1:8010
+  Environment source: /etc/gridflow/gridflow.env
+  Extra environment:
+    MONITOR_CONFIG_PATH=/etc/gridflow/monitor_config.json
+    MONITOR_AUTH_PATH=/etc/gridflow/monitor_auth.json
+  Notes: service pre-creates /etc/gridflow, /etc/gridflow/monitor_config.json, /etc/gridflow/monitor_auth.json with root:monitor ownership/mode 0660.
+
+- nginx
+  Role: external reverse proxy and TLS termination.
+  Runtime config include: /etc/nginx/nginx.conf
+  Active site link: /etc/nginx/sites-enabled/gridflow -> /etc/nginx/sites-available/gridflow
+  Site config: /etc/nginx/sites-available/gridflow
+  External bind: 80, 443
+  server_name: gridflow.co.kr
+
+- PostgreSQL
+  Role: primary application database used by web app, bot, and monitor.
+  service unit referenced by ops: postgresql@16-main.service
+  Config file: /etc/postgresql/16/main/postgresql.conf
+  HBA file: /etc/postgresql/16/main/pg_hba.conf
+  Port: 5432
+  DB URL source: /etc/gridflow/gridflow.env
+  Observed DB URL target: database upbit_bot, user tradingbot, host localhost, port 5432
+  App usage evidence:
+    app/core/config.py loads DB_URL from GRIDFLOW_ENV_FILE or repo .env fallback
+    app/db/database.py creates SQLAlchemy engine from DB_URL
+    many API/bot modules call psycopg2.connect(DB_URL)
+
+- Backup timer
+  Role: daily PostgreSQL custom-format dump.
+  systemd unit: gridflow-pg-backup.service
+  timer: gridflow-pg-backup.timer
+  Unit file path: /etc/systemd/system/gridflow-pg-backup.service
+  Timer file path: /etc/systemd/system/gridflow-pg-backup.timer
+  ExecStart: /home/ubuntu/upbit_bot/ops/gridflow_pg_backup.sh
+
+- Health alert timer
+  Role: periodic service/endpoint health check and webhook alerting.
+  systemd unit: gridflow-health-alert.service
+  timer: gridflow-health-alert.timer
+  Unit file path: /etc/systemd/system/gridflow-health-alert.service
+  Timer file path: /etc/systemd/system/gridflow-health-alert.timer
+  ExecStart: /home/ubuntu/upbit_bot/ops/gridflow_health_alert.sh
+
+2. Nginx Connection Topology
+
+- External HTTP 80 -> returns 301 redirect to HTTPS for host gridflow.co.kr
+- External HTTPS 443 -> nginx TLS site for gridflow.co.kr
+- nginx location /monitor -> proxy_pass http://127.0.0.1:8010
+- nginx location / -> proxy_pass http://127.0.0.1:8000
+- Proxy headers set: Host, X-Real-IP, X-Forwarded-For, X-Forwarded-Proto
+- TLS certificate paths:
+  /etc/letsencrypt/live/gridflow.co.kr-0001/fullchain.pem
+  /etc/letsencrypt/live/gridflow.co.kr-0001/privkey.pem
+
+3. PostgreSQL Usage
+
+- Main runtime configuration path: /etc/gridflow/gridflow.env
+- Current runtime DB target from DB_URL: postgresql://tradingbot@localhost:5432/upbit_bot
+- DB client use in code:
+  SQLAlchemy engine in /home/ubuntu/upbit_bot/app/db/database.py
+  psycopg2 direct connections in API/auth/bot/strategy modules
+- Local access policy from /etc/postgresql/16/main/pg_hba.conf:
+  local all all peer
+  host all all 127.0.0.1/32 md5
+  host all all ::1/128 scram-sha-256
+- postgresql.conf shows port=5432
+- listen_addresses is not explicitly set in the inspected file; default commented value is localhost
+- unix_socket_directories=/var/run/postgresql
+
+4. Env / Config File Paths
+
+- Main runtime env file used by systemd services:
+  /etc/gridflow/gridflow.env
+- Repo fallback env path in code:
+  /home/ubuntu/upbit_bot/.env
+  Observed state: no local .env file found in project root during this inspection
+- Monitor config:
+  /etc/gridflow/monitor_config.json
+  Purpose: selected exchange and monitor API credentials/tier
+- Monitor auth:
+  /etc/gridflow/monitor_auth.json
+  Purpose: stored monitor password hash
+- Backup copies under /etc/gridflow:
+  /etc/gridflow/backup/home_upbit_bot.env.20260418_093645.bak
+  /etc/gridflow/backup/home_monitor_config.20260418_093645.bak
+  /etc/gridflow/backup/home_monitor_auth.20260418_093645.bak
+
+5. Logs
+
+- gridflow-app.service:
+  No file log path defined in unit; expected journald/systemd default
+- upbit-bot.service:
+  StandardOutput=journal
+  StandardError=journal
+- orderlens-ops.service:
+  StandardOutput=append:/home/ubuntu/upbit_bot/monitor_uvicorn.log
+  StandardError=append:/home/ubuntu/upbit_bot/monitor_uvicorn.log
+- Logrotate config source:
+  /home/ubuntu/upbit_bot/ops/gridflow.logrotate
+- Paths listed in logrotate:
+  /home/ubuntu/upbit_bot/bot.log
+  /home/ubuntu/upbit_bot/monitor.log
+  /home/ubuntu/upbit_bot/monitor_8010.log
+  /home/ubuntu/upbit_bot/monitor_uvicorn.log
+  /home/ubuntu/upbit_bot/nohup.out
+  /var/log/gridflow_backup.log
+  /var/log/gridflow_restore_verify.log
+  /var/log/gridflow_alert.log
+- Observed existing project log files:
+  /home/ubuntu/upbit_bot/bot.log
+  /home/ubuntu/upbit_bot/monitor.log
+  /home/ubuntu/upbit_bot/monitor_8010.log
+  /home/ubuntu/upbit_bot/monitor_uvicorn.log
+  /home/ubuntu/upbit_bot/nohup.out
+- /var/log/gridflow_*.log files were not found during this inspection
+
+6. Backup / Restore / Health Paths
+
+- Backup script:
+  /home/ubuntu/upbit_bot/ops/gridflow_pg_backup.sh
+- Restore verify script:
+  /home/ubuntu/upbit_bot/ops/gridflow_pg_restore_verify.sh
+- Health alert script:
+  /home/ubuntu/upbit_bot/ops/gridflow_health_alert.sh
+- Default backup dir from script:
+  /var/backups/gridflow
+- Default backup log:
+  /var/log/gridflow_backup.log
+- Default restore verify log:
+  /var/log/gridflow_restore_verify.log
+- Default health alert log:
+  /var/log/gridflow_alert.log
+- Health state dir/files:
+  /var/lib/gridflow/health_alert.last
+  /var/lib/gridflow/health_alert.push.last
+- Observed backup files in /var/backups/gridflow:
+  none found during this inspection
+
+7. Bootstrap-Critical Values To Know Before Install
+
+- Project root: /home/ubuntu/upbit_bot
+- Python entry commands:
+  web: /home/ubuntu/upbit_bot/venv/bin/python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+  bot: /home/ubuntu/upbit_bot/venv/bin/python3 -u -m app.bot
+  monitor: /home/ubuntu/upbit_bot/venv/bin/python3 -m uvicorn app.monitor.product_app:app --host 127.0.0.1 --port 8010
+- Required runtime env file path: /etc/gridflow/gridflow.env
+- Required runtime monitor files:
+  /etc/gridflow/monitor_config.json
+  /etc/gridflow/monitor_auth.json
+- Public hostname in nginx: gridflow.co.kr
+- Public ports in nginx: 80, 443
+- Internal app ports: 8000, 8010
+- PostgreSQL target from runtime env: localhost:5432 / database upbit_bot / user tradingbot
+- Main systemd units:
+  gridflow-app.service
+  upbit-bot.service
+  orderlens-ops.service
+  gridflow-pg-backup.service
+  gridflow-pg-backup.timer
+  gridflow-health-alert.service
+  gridflow-health-alert.timer
+
+8. Current Active Runtime State
+
+- systemctl is-active returned active for:
+  gridflow-app.service
+  upbit-bot.service
+  orderlens-ops.service
+  nginx.service
+  postgresql@16-main.service
+  gridflow-pg-backup.timer
+  gridflow-health-alert.timer
+- systemctl list-timers --all shows:
+  gridflow-health-alert.timer active on 5-minute cadence after boot
+  gridflow-pg-backup.timer scheduled daily around 03:20 UTC with RandomizedDelaySec=10m
+
+9. Unclear / Not Fixed Yet
+
+- The inspected PostgreSQL config does not explicitly set listen_addresses; only the default commented localhost line is present. Actual runtime listener interfaces were not directly measured because non-root ss output was restricted.
+- nginx.service unit file itself was not inspected in this turn; proxy behavior was confirmed from nginx config files only.
+- Existence of live backup dump files under /var/backups/gridflow was checked and none were found at inspection time.
+- Existence of /var/log/gridflow_backup.log, /var/log/gridflow_restore_verify.log, /var/log/gridflow_alert.log was checked and none were found at inspection time.
+- Secret values exist in /etc/gridflow/gridflow.env, /etc/gridflow/monitor_config.json, and /etc/gridflow/monitor_auth.json, but are intentionally not copied into this document.
+
+10. Next Turn Should Confirm
+
+- Whether PostgreSQL is bound only to localhost at runtime or also exposes additional interfaces.
+- Whether nginx is the only externally exposed process, or whether any direct service port exposure exists outside nginx.
+- Which log files are operationally authoritative for web app and bot: journald only vs leftover project-root files.
+- Whether backup generation is succeeding operationally, given no dump files were present in /var/backups/gridflow at inspection time.

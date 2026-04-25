@@ -13,6 +13,10 @@ monitor_auth.json
 monitor_config.json
 .upbit_bot_key
 *.pem
+_install_render/
+_install_render_rehearsal/
+_install_render_full_rehearsal/
+_install_render_ops_assets/
 
 var/
 *.db
@@ -21,9 +25,13 @@ var/
 ui_debug_export/
 *.backup_*
 *.bak_*
-0
-=
-ear
+*.log.*
+nohup.out.*
+with old DB credentials*
+gridflow_debug.py
+gridflow_*grep*.txt
+gridflow_tree.txt
+static_index_step*.txt
 
 # local backups / snapshots
 *.backup_*
@@ -66,3 +74,4 @@ app/api/*.bak*
 
 app/api/*.market_sell_step1_backup_*
 app/api/*.bak*
+_archive/

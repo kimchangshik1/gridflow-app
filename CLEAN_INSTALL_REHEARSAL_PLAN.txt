@@ -1,0 +1,235 @@
+CLEAN_INSTALL_REHEARSAL_PLAN
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Scope: preparation-only plan for clean install rehearsal, based on current repository and live operating layout
+Rule: no live service changes; judgment from actual current structure only
+
+1. Clean Install Definition
+
+For this project, "clean install rehearsal" means:
+
+- starting from an environment that does not already contain the active GridFlow runtime paths or service registrations
+- placing source into the expected project path
+- preparing Python/venv and package install
+- placing runtime config under /etc/gridflow
+- preparing a separate PostgreSQL database target
+- applying the Alembic baseline to an empty DB
+- wiring service startup paths equivalent to current production structure
+- verifying the same basic app/monitor startup and smoke-check path
+
+This is stricter than "run the code from another folder". Current production is tightly bound to:
+
+- project root: /home/ubuntu/upbit_bot
+- runtime config path: /etc/gridflow
+- systemd unit names:
+  gridflow-app.service
+  upbit-bot.service
+  orderlens-ops.service
+  gridflow-pg-backup.timer
+  gridflow-health-alert.timer
+- internal bind ports:
+  127.0.0.1:8000
+  127.0.0.1:8010
+- nginx site/domain:
+  /etc/nginx/sites-available/gridflow
+  /etc/nginx/sites-enabled/gridflow
+  gridflow.co.kr
+
+2. Rehearsal Success Criteria
+
+- empty rehearsal DB can be created and Alembic baseline can reproduce the 19 application tables
+- rehearsal source tree, venv, and package install can be prepared without touching live runtime
+- rehearsal config files can be separated from the live /etc/gridflow contract
+- rehearsal service startup can be tested without colliding with live systemd unit names or live ports
+- rehearsal smoke checks can be run against the rehearsal app/monitor endpoints only
+- live services, live nginx site, and live DB remain unchanged throughout
+
+3. Required Inputs / Materials
+
+- source tree containing:
+  app/
+  ops/
+  static/
+  requirements-web.txt
+  alembic.ini
+  alembic/
+- runtime config contract:
+  gridflow.env
+  monitor_config.json
+  monitor_auth.json
+- PostgreSQL role/database path for rehearsal
+- Python 3 + isolated venv path
+- service/unit templates or equivalent generated unit files for rehearsal-only names
+- nginx site file for rehearsal-only server_name/ports if nginx is included in the rehearsal scope
+
+4. Environment Isolation Requirements
+
+- DB isolation:
+  rehearsal must use a separate PostgreSQL database from live `upbit_bot`
+  evidence:
+  current live runtime DB is `upbit_bot` through `/etc/gridflow/gridflow.env`
+  bootstrap and Alembic validation already proved empty-DB baseline is possible with a separate DB
+
+- Config isolation:
+  rehearsal must not reuse live `/etc/gridflow/gridflow.env`, `/etc/gridflow/monitor_config.json`, `/etc/gridflow/monitor_auth.json`
+  reason:
+  all current services explicitly read `/etc/gridflow/...`
+  if rehearsal also points there, it is no longer isolated
+
+- Service isolation:
+  rehearsal must not register over the existing live unit names
+  reason:
+  current live units already exist and are enabled under those exact names
+
+- Port isolation:
+  rehearsal must not bind to 127.0.0.1:8000 or 127.0.0.1:8010 if live services stay up
+  reason:
+  gridflow-app.service and orderlens-ops.service already own those ports in the live structure
+
+- nginx isolation:
+  rehearsal must not reuse live `gridflow` site file or `gridflow.co.kr` routing if live nginx stays up
+  reason:
+  current site already proxies `/` -> 127.0.0.1:8000 and `/monitor` -> 127.0.0.1:8010
+
+5. Port / Service Collision Avoidance Conditions
+
+- If rehearsal includes app start only inside current server:
+  use separate bind ports from 8000/8010
+  do not use existing systemd unit names
+  do not use `/etc/gridflow` live paths
+
+- If rehearsal includes nginx in current server:
+  use a different site file name than `gridflow`
+  use a different server_name than `gridflow.co.kr`
+  proxy to rehearsal-only internal ports
+  do not replace `/etc/nginx/sites-enabled/gridflow`
+
+- If rehearsal includes systemd in current server:
+  unit names must differ from:
+  gridflow-app.service
+  upbit-bot.service
+  orderlens-ops.service
+  gridflow-pg-backup.service
+  gridflow-pg-backup.timer
+  gridflow-health-alert.service
+  gridflow-health-alert.timer
+
+6. Option Comparison
+
+- A. New VM
+  Possible: yes
+  Why:
+  it naturally gives clean `/etc`, clean systemd namespace, clean nginx site namespace, clean ports, and clean PostgreSQL target
+  Strengths:
+  closest match to true clean install definition
+  no collision with live `/etc/gridflow`
+  no collision with live service names
+  no collision with live nginx site/domain routing
+  no collision with live ports 8000/8010
+  Best use:
+  full end-to-end clean install rehearsal including systemd and nginx
+
+- B. Current server isolated rehearsal
+  Possible: partially yes
+  Why:
+  DB isolation is straightforward
+  source/venv isolation is straightforward
+  but current production is hard-bound to fixed runtime paths, unit names, and nginx routing
+  Weaknesses:
+  cannot be considered a full clean install rehearsal if it reuses live `/etc/gridflow`, unit names, ports, or nginx site
+  requires deliberate alternate paths, alternate unit names, alternate site file, alternate server_name, alternate ports
+  therefore it tests "isolated install variant" rather than "same-shape clean install"
+  Best use:
+  app/bootstrap rehearsal without touching live systemd/nginx
+
+7. Recommended Rehearsal Mode
+
+- Recommended: A. New VM
+
+Reason for recommendation:
+
+- current production layout is anchored to fixed live resources:
+  /home/ubuntu/upbit_bot
+  /etc/gridflow
+  live unit names
+  live nginx site name and domain
+  live internal ports 8000/8010
+- a same-shape rehearsal inside the current server would require renaming or relocating multiple live-bound components, which stops being a faithful clean install rehearsal
+- a new VM is the only option that is both clean and structurally equivalent to production with minimal interpretation
+
+8. Execution-Preparation Checklist
+
+- Source payload ready:
+  app/
+  ops/
+  static/
+  requirements-web.txt
+  alembic.ini
+  alembic/
+
+- Config payload ready:
+  sanitized gridflow.env template or secure source for real values
+  monitor_config.json plan
+  monitor_auth.json plan
+
+- DB preparation ready:
+  separate rehearsal DB name
+  separate or dedicated role decision
+  Alembic baseline available and already proven on empty DB
+
+- Python preparation ready:
+  Python 3 available
+  venv creation path decided
+  package install from requirements-web.txt
+
+- systemd preparation ready:
+  app service file source still missing in repo
+  bot service file source still missing in repo
+  orderlens-ops service file source still missing in repo
+  therefore actual unit file payload must be sourced from current installed files or recreated explicitly before rehearsal
+
+- nginx preparation ready:
+  live site file exists, but repo template does not
+  rehearsal needs a separate site file payload if nginx is included
+
+- Smoke targets ready:
+  local app GET /
+  local monitor GET /monitor expecting redirect before login
+  optional nginx-backed app/monitor checks if nginx is in scope
+
+9. Still Unconfirmed
+
+- exact source acquisition method remains unconfirmed
+- exact venv creation command remains unconfirmed
+- exact initial creation command and permission model for `/etc/gridflow/gridflow.env` remains unconfirmed
+- repo-side source templates for:
+  gridflow-app.service
+  upbit-bot.service
+  orderlens-ops.service
+  nginx site file
+  are still absent; only installed live copies are known
+- whether rehearsal should include nginx/systemd end-to-end on the first pass or stop at DB + app bootstrap remains a scope decision for the next turn
+
+10. Next-Turn Rehearsal Scope Recommendation
+
+Next turn should execute one of these, with A preferred:
+
+- Preferred next turn:
+  new-VM clean install rehearsal up to:
+  source placement
+  venv/package install
+  rehearsal `/etc/gridflow` placement
+  empty DB + Alembic baseline
+  app/monitor start
+  local smoke checks
+
+- If forced to stay on current server:
+  limit the first rehearsal to:
+  isolated source path
+  isolated venv
+  isolated rehearsal DB
+  isolated config path
+  Alembic baseline
+  direct app/monitor startup on alternate ports
+  no live systemd replacement
+  no live nginx replacement

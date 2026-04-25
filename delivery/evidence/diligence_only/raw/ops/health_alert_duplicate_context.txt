@@ -1,0 +1,24 @@
+health alert duplicate suppression context
+captured_at: 2026-04-24 UTC
+
+sources
+- journalctl -u gridflow-health-alert.service --since '2026-04-22 23:30:00' --until '2026-04-22 23:55:00'
+- journalctl -t gridflow-health --since '2026-04-22 23:30:00' --until '2026-04-22 23:55:00'
+
+sanitization
+- hostnames -> <host>
+- app endpoint -> <app_url>
+- monitor endpoint -> <monitor_url>
+- webhook hostname -> <webhook_host>
+
+sanitized raw excerpt
+- Apr 22 23:33:39 <host> gridflow-health[1292133]: GridFlow health alert on <host>: endpoint app unreachable url=<app_url>
+- Apr 22 23:36:03 <host> systemd[1]: Starting gridflow-health-alert.service - GridFlow basic health alert check...
+- Apr 22 23:37:38 <host> gridflow_health_alert.sh[1292543]: curl: (6) Could not resolve host: <webhook_host>
+- Apr 22 23:41:30 <host> systemd[1]: Starting gridflow-health-alert.service - GridFlow basic health alert check...
+- Apr 22 23:49:26 <host> gridflow-health[1293802]: GridFlow health alert on <host>: endpoint app unreachable url=<app_url> endpoint monitor unreachable url=<monitor_url>
+
+reading note
+- the service keeps running between alert lines
+- the 23:33 alert text is not re-emitted on the next unit runs
+- the next gridflow-health alert line appears only after the failure set changes and monitor also becomes unreachable

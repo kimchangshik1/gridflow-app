@@ -1,0 +1,9 @@
+OrderLens Ops 납품 체크리스트
+
+- 로그인 진입 가능 여부: /monitor/setup 접속 후 Monitor Login 화면이 열리고 거래소/API Key/API Secret 입력 폼이 보이면 정상.
+- 최근 주문 표시 여부: /monitor 접속 후 Recent Orders 영역에 주문 행 또는 "No recent orders." 안내가 표시되면 정상.
+- 최근 활동 표시 여부: /monitor 접속 후 Recent Activity 영역에 활동 행 또는 "No recent activity." 안내가 표시되면 정상.
+- 오류 로그 표시 여부: /monitor 접속 후 Error Logs 영역에 오류 행 또는 "No error logs." 안내가 표시되면 정상.
+- 거래소 필터 동작 여부: Exchange 필터를 변경했을 때 주문/활동/오류 목록이 선택한 거래소 기준으로 다시 표시되면 정상.
+- 상태 필터 동작 여부: Status 필터를 변경했을 때 주문/활동/오류 목록이 선택한 상태 그룹 기준으로 다시 표시되면 정상.
+- 마지막 업데이트 표시 여부: 자동 갱신 후 Last update 값이 "-"에서 현재 갱신 시각으로 바뀌면 정상.

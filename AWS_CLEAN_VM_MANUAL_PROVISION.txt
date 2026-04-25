@@ -1,0 +1,128 @@
+AWS_CLEAN_VM_MANUAL_PROVISION
+
+1. Current Host AWS Identity
+
+- provider: `AWS EC2` (`확정`)
+  - 근거: DMI `Amazon EC2`, product `t3.medium`, cloud-init `DataSourceEc2Local`
+- region: `ap-northeast-1` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/placement/region`
+- availability zone: `ap-northeast-1a` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/placement/availability-zone`
+- instance id: `i-0205cf57f9b8491bf` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/instance-id`, cloud-init instance path
+- instance type: `t3.medium` (`확정`)
+  - 근거: DMI `product_name=t3.medium`
+- AMI id: `ami-0f65fc8c24ec8d2a1` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/ami-id`
+- subnet id: `subnet-004b669deaaaa3143` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/network/interfaces/macs/.../subnet-id`
+- VPC id: `vpc-08f8d09589d3e57eb` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/network/interfaces/macs/.../vpc-id`
+- security group name: `launch-wizard-3` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/security-groups`
+- security group id: `sg-0dc750f2c81872b0e` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/network/interfaces/macs/.../security-group-ids`
+- public IPv4 present: `54.250.241.38` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/public-ipv4`
+- private IPv4: `172.31.35.64` (`확정`)
+  - 근거: AWS IMDSv2 `meta-data/local-ipv4`
+
+2. Manual Provision Input Table
+
+- Region
+  - value: `ap-northeast-1`
+  - status: `확정`
+  - 근거: IMDSv2 region
+- Availability Zone
+  - value: `ap-northeast-1a`
+  - status: `확정`
+  - 근거: IMDSv2 availability-zone
+- Ubuntu image family
+  - value: `Ubuntu 24.04 LTS`
+  - status: `유력`
+  - 근거: current host OS is `Ubuntu 24.04.4 LTS`; clean VM should match host OS family
+- Exact AMI
+  - value: `ami-0f65fc8c24ec8d2a1`
+  - status: `확정`
+  - 근거: IMDSv2 ami-id
+- Instance type
+  - value: `t3.medium`
+  - status: `확정`
+  - 근거: DMI product
+- Subnet
+  - value: `subnet-004b669deaaaa3143`
+  - status: `확정`
+  - 근거: IMDSv2 subnet-id
+- VPC
+  - value: `vpc-08f8d09589d3e57eb`
+  - status: `확정`
+  - 근거: IMDSv2 vpc-id
+- Security group id
+  - value: `sg-0dc750f2c81872b0e`
+  - status: `확정`
+  - 근거: IMDSv2 security-group-ids
+- Security group name
+  - value: `launch-wizard-3`
+  - status: `확정`
+  - 근거: IMDSv2 security-groups
+- Public IP assignment
+  - value: `enabled`
+  - status: `유력`
+  - 근거: current host has public IPv4 and direct SSH-style posture
+- Root disk
+  - value: `20 GiB minimum, 30 GiB recommended`
+  - status: `유력`
+  - 근거: current host root is 20G and already near full
+
+3. Current Host OS And Access Baseline
+
+- OS: `Ubuntu 24.04.4 LTS` (`확정`)
+  - 근거: `/etc/os-release`
+- SSH auth posture:
+  - `PubkeyAuthentication yes` (`확정`)
+  - `PasswordAuthentication no` (`확정`)
+  - `PermitRootLogin no` (`확정`)
+  - 근거: `/etc/ssh/sshd_config`
+
+4. Recommended AWS Console Choices
+
+- Region: `ap-northeast-1`
+- AZ: same subnet/AZ path as current host if parity matters, otherwise any healthy AZ in `ap-northeast-1`
+- AMI:
+  - first choice: same AMI `ami-0f65fc8c24ec8d2a1`
+  - fallback: current Ubuntu 24.04 LTS image in `ap-northeast-1`
+- Instance type: `t3.medium`
+- Root disk:
+  - minimum `20 GiB`
+  - recommended `30 GiB`
+- Network:
+  - VPC `vpc-08f8d09589d3e57eb`
+  - subnet `subnet-004b669deaaaa3143`
+  - public IP enabled
+- Security:
+  - safest parity path: attach a new SG with only minimal inbound rules
+  - minimum inbound:
+    - SSH `22/tcp` from operator IP only
+    - HTTP `80/tcp` only if nginx proof requires it
+    - HTTPS `443/tcp` only if TLS proof requires it
+- SSH keys:
+  - key pair must be ready in AWS console before launch
+  - login expectation matches public-key-only host posture
+
+5. Values Still Unconfirmed
+
+- exact console label/name of the current Ubuntu AMI
+- whether reusing the current security group is acceptable for the clean VM proof
+- whether the clean VM should pin to the same AZ or only the same region
+
+6. Clean VM Check Immediately After Launch
+
+- confirm these do not exist:
+  - `/etc/gridflow`
+  - `/etc/systemd/system/gridflow-app.service`
+  - `/etc/systemd/system/upbit-bot.service`
+  - `/etc/systemd/system/orderlens-ops.service`
+  - `/etc/nginx/sites-available/gridflow`
+  - `/opt/gridflow/app`
+- confirm SSH posture is reachable with key-based login
+- only after that, proceed to the GridFlow first-execute packet

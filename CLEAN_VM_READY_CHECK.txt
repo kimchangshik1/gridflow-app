@@ -1,0 +1,43 @@
+CLEAN_VM_READY_CHECK
+
+Current host identity
+- instance-id: `i-0205cf57f9b8491bf`
+- ami-id: `ami-0f65fc8c24ec8d2a1`
+- public-ipv4: `54.250.241.38`
+- local-ipv4: `172.31.35.64`
+- region: `ap-northeast-1`
+- availability-zone: `ap-northeast-1a`
+- hostname: `ip-172-31-35-64`
+- machine-id: `ec2a6a2070897dbe49fc543dfda159e6`
+
+Comparison against known bad host
+- verdict: `동일 호스트`
+- basis:
+  - instance-id matches
+  - public-ipv4 matches
+  - local-ipv4 matches
+  - hostname matches
+
+Clean state check
+- verdict: `FAIL`
+- traces:
+  - `/etc/gridflow` -> present
+  - `/etc/systemd/system/gridflow-app.service` -> present
+  - `/etc/systemd/system/upbit-bot.service` -> present
+  - `/etc/systemd/system/orderlens-ops.service` -> present
+  - `/etc/nginx/sites-available/gridflow` -> present
+  - `/opt/gridflow/app` -> absent
+
+Root disk and baseline spec
+- root fs: `/dev/root 19G total / 17G used / 1.8G avail`
+- usable root free space: `1.8G`
+- disk layout: `nvme0n1 20G`
+- vCPU: `2`
+- memory: `3.7Gi`
+
+Install readiness
+- proceed with install: `no`
+- disk expansion needed: `yes if this host were used`, but this is secondary because the host already fails the wrong-host check
+
+Final verdict
+- `FAIL_WRONG_HOST`

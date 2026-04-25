@@ -1,0 +1,81 @@
+{
+  "base_url": "https://gridflow.co.kr/",
+  "output_dir": "/home/ubuntu/upbit_bot/evidence/raw/screenshots/manual",
+  "started_at": "2026-04-20T07:42:28.266Z",
+  "shots": [
+    "bithumb_guest_buy_result.png",
+    "bithumb_guest_sell_result.png",
+    "bithumb_guest_position_before_after.png"
+  ],
+  "blocker": null,
+  "guest": {
+    "user_id": 129,
+    "username": "guest_f60772c8a6c117aa",
+    "is_guest": true,
+    "expires_at": "2026-04-20T08:42:28.332471+00:00"
+  },
+  "buy_request": {
+    "ok": true,
+    "status": 200,
+    "data": {
+      "id": 22,
+      "symbol": "KRW-XRP",
+      "side": "BUY",
+      "price": 2104,
+      "amount_krw": 6000,
+      "status": "FILLED",
+      "note": "bithumb:시장가",
+      "created_at": "2026-04-20 07:42:41.573338+00:00",
+      "sandbox": true
+    }
+  },
+  "sell_request": {
+    "ok": true,
+    "status": 200,
+    "data": {
+      "id": 23,
+      "symbol": "KRW-XRP",
+      "side": "SELL",
+      "price": 2105,
+      "amount_krw": 5500,
+      "status": "FILLED",
+      "note": "bithumb:시장가",
+      "created_at": "2026-04-20 07:42:45.739775+00:00",
+      "sandbox": true
+    }
+  },
+  "before": {
+    "msg": "",
+    "guestLabel": "guest_f60772c8a6c117aa GUEST",
+    "krw": "0",
+    "evalVal": "0",
+    "minRuleText": "",
+    "firstOrderRow": "",
+    "firstPositionRow": "현재 보유 포지션이 없습니다. 전략 화면으로 이동거래 계속하기",
+    "selectedSymbol": "KRW-XRP",
+    "selectedPrice": 2104
+  },
+  "after_buy": {
+    "msg": "",
+    "guestLabel": "guest_f60772c8a6c117aa GUEST",
+    "krw": "0",
+    "evalVal": "0",
+    "minRuleText": "",
+    "firstOrderRow": "",
+    "firstPositionRow": "현재 보유 포지션이 없습니다. 전략 화면으로 이동거래 계속하기",
+    "selectedSymbol": "KRW-XRP",
+    "selectedPrice": 2104
+  },
+  "after_sell": {
+    "msg": "",
+    "guestLabel": "guest_f60772c8a6c117aa GUEST",
+    "krw": "0",
+    "evalVal": "0",
+    "minRuleText": "",
+    "firstOrderRow": "",
+    "firstPositionRow": "현재 보유 포지션이 없습니다. 전략 화면으로 이동거래 계속하기",
+    "selectedSymbol": "KRW-XRP",
+    "selectedPrice": 2104
+  },
+  "finished_at": "2026-04-20T07:42:50.132Z"
+}

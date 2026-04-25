@@ -1,0 +1,38 @@
+RENDER_INSTALL_PAYLOAD
+
+Purpose
+- Render repo install templates into repo-local payload files only.
+- This does not write into `/etc`, `/etc/systemd/system`, or `/etc/nginx`.
+
+Inputs
+- Template directory: `ops/templates/`
+- Values file: `ops/templates/install_values.example.json` or another flat JSON object with the same keys
+
+Usage
+```bash
+python3 ops/render_install_payload.py
+python3 ops/render_install_payload.py --values ops/templates/install_values.example.json
+python3 ops/render_install_payload.py --values /path/to/your-values.json --output-dir _install_render
+```
+
+Output
+- Default output directory: `_install_render/`
+- Rendered structure:
+  - `_install_render/etc/systemd/system/gridflow-app.service`
+  - `_install_render/etc/systemd/system/upbit-bot.service`
+  - `_install_render/etc/systemd/system/orderlens-ops.service`
+  - `_install_render/etc/nginx/sites-available/gridflow`
+  - `_install_render/etc/gridflow/gridflow.env`
+  - `_install_render/etc/gridflow/monitor_config.json`
+  - `_install_render/etc/gridflow/monitor_auth.json`
+
+Behavior
+- Replaces `{{PLACEHOLDER}}` tokens
+- Fails if a placeholder used by templates is missing from the values JSON
+- Fails if a required placeholder is present but empty
+- Prints a summary of template -> output file mappings and used placeholders
+
+Notes
+- Keep the output directory inside the repo.
+- `MONITOR_PASSWORD_HASH` must be a bcrypt hash, not a plain password.
+- Generated files are payload artifacts only; install/copy/apply steps are intentionally out of scope.

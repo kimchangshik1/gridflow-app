@@ -1,0 +1,11 @@
+[Unit]
+Description=GridFlow basic health alert check
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart={{APP_DIR}}/ops/gridflow_health_alert.sh
+SuccessExitStatus=2

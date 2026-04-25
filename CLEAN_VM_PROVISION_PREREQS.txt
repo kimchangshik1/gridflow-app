@@ -1,0 +1,97 @@
+CLEAN_VM_PROVISION_PREREQS
+
+1. Current Host Provider Assessment
+
+- provider: `AWS EC2` (`확정`)
+- evidence:
+  - hostname: `ip-172-31-35-64`
+  - DMI product: `t3.medium`
+  - DMI vendor: `Amazon EC2`
+  - DMI board vendor: `Amazon EC2`
+  - cloud-init datasource: `DataSourceEc2Local`
+  - cloud-init instance path includes EC2-style instance id: `i-0205cf57f9b8491bf`
+
+2. Current Host Region Assessment
+
+- region: `미확정`
+- strongest clue:
+  - hostname private range `172.31.x.x` matches common AWS VPC defaults
+- missing direct proof:
+  - metadata token endpoint answered
+  - region/identity document was not directly retrievable in this session
+- recommendation:
+  - if the existing server's cloud console is available, create the clean VM in the same AWS region as this host
+
+3. Current Host OS Assessment
+
+- OS: `Ubuntu 24.04.4 LTS (Noble Numbat)` (`확정`)
+- source: `/etc/os-release`
+
+4. Current Host Approximate Spec
+
+- instance class signal: `t3.medium`
+- vCPU visible: `2`
+- RAM visible: `3.7 GiB`
+- swap: `0`
+- root disk: `19G` mounted on `/`
+- root disk usage at measurement: `17G used / 1.8G free`
+- root device style: `nvme0n1 20G`
+- repo size: `/home/ubuntu/upbit_bot = 364M`
+
+5. Clean VM Recommended Baseline
+
+- provider:
+  - `AWS EC2` preferred, to match the current host as closely as possible
+- region:
+  - same AWS region as the current production-like host if known
+  - otherwise `미확정`, must be chosen from the cloud console or account records
+- OS:
+  - `Ubuntu 24.04 LTS`
+- minimum VM size:
+  - `2 vCPU`
+  - `4 GiB RAM`
+- minimum disk:
+  - `20 GiB` absolute floor
+  - `30 GiB` recommended because the current host root disk is already tight at 19G/91% usage
+
+6. Network And Access Prerequisites
+
+- SSH reachable from the operator host
+- SSH key-based login available
+- expected SSH posture, based on current host config:
+  - `PubkeyAuthentication yes`
+  - `PasswordAuthentication no`
+  - `PermitRootLogin no`
+- security exposure should be minimal:
+  - SSH only for provisioning
+  - HTTP/HTTPS only if nginx/TLS validation is part of the clean-VM proof plan
+
+7. Cloud Account Prerequisites
+
+- AWS account access
+- permission to:
+  - create one EC2 instance
+  - choose Ubuntu 24.04 LTS image
+  - attach at least one 20G-30G root volume
+  - assign a public IP or equivalent reachable access path
+  - create or attach security group rules
+  - register or select an SSH key pair
+- if parity with the current host matters:
+  - current host AWS region from the cloud console
+  - subnet/VPC choice
+
+8. What Must Already Be Ready Before GridFlow First Execute
+
+- unpacked GridFlow repo or transfer bundle
+- actual `install_values.live.json`
+- PostgreSQL role/database connectivity for `DB_URL`
+- TLS/nginx prerequisites for:
+  - `SERVER_NAME`
+  - `SSL_CERT_PATH`
+  - `SSL_KEY_PATH`
+
+9. Still Unconfirmed
+
+- exact AWS region of the current host
+- exact AMI/image id used by the current host
+- exact cloud-side security group currently attached to the current host

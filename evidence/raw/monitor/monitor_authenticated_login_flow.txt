@@ -1,0 +1,11 @@
+monitor authenticated login flow
+captured_at: 2026-04-24 UTC
+provenance: temporary local runtime using the same monitor app code with isolated monitor_auth/config; not the live operator session
+runtime_url: <monitor_runtime_url>
+GET /monitor/auth-status -> 200 {"has_password": true}
+POST /monitor/login -> 200 {"ok": true}
+Set-Cookie: monitor_session=<masked>; HttpOnly; SameSite=Strict
+GET /monitor with authenticated cookie -> 200 text/html
+GET /monitor/orders with authenticated cookie -> 200 orders_count=50
+GET /monitor/activity with authenticated cookie -> 200 activity_count=50
+note: cookie value, internal hostname, raw order/activity body, and local runtime address are masked or omitted

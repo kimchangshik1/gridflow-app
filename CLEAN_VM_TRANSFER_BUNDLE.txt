@@ -1,0 +1,65 @@
+CLEAN_VM_TRANSFER_BUNDLE
+
+Script path
+- `ops/build_clean_vm_transfer_bundle.sh`
+
+Dry-run example
+```bash
+bash ops/build_clean_vm_transfer_bundle.sh \
+  --output-dir /tmp/gridflow_clean_vm_bundle_out
+```
+
+Execute example
+```bash
+bash ops/build_clean_vm_transfer_bundle.sh \
+  --source-dir /home/ubuntu/upbit_bot \
+  --output-dir /tmp/gridflow_clean_vm_bundle_out \
+  --execute
+```
+
+Core file groups included
+- clean VM execution wrappers:
+  - `ops/run_clean_vm_live_install.sh`
+  - `ops/capture_clean_vm_first_execute.sh`
+  - `ops/prepare_clean_vm_db.sh`
+  - `ops/clean_install_first_execute.sh`
+- install helpers:
+  - `ops/deploy_source_tree.sh`
+  - `ops/prepare_app_runtime.sh`
+  - `ops/pre_install_preflight.py`
+  - `ops/render_install_payload.py`
+  - `ops/apply_install_payload.py`
+  - `ops/apply_install_permissions.py`
+- values/template input:
+  - `ops/templates/install_values.example.json`
+  - template files under `ops/templates/`
+- clean VM handoff docs:
+  - `CLEAN_VM_EXECUTION_PACKET.txt`
+  - `CLEAN_VM_LIVE_INSTALL.txt`
+  - `CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt`
+  - `MAJOR2_CLOSEOUT.txt`
+  - `MAJOR2_DRIFT_AUDIT.txt`
+
+Exclude rules
+- `venv/`
+- `__pycache__/`
+- `*.pyc`
+- `.pytest_cache/`
+- `.mypy_cache/`
+- `_install_render*`
+- `bot.log*`
+- `monitor.log*`
+- `monitor_8010.log*`
+- `monitor_uvicorn.log*`
+- `nohup.out*`
+- temporary evidence/log style outputs
+
+After unpack on clean VM, read these first
+- `CLEAN_VM_EXECUTION_PACKET.txt`
+- `CLEAN_VM_LIVE_INSTALL.txt`
+- `CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt`
+
+Notes
+- This bundle is for transfer only.
+- It does not modify `/etc`, systemd, nginx, or PostgreSQL.
+- On the current host, only bundle dry-run and bundle creation were verified. Actual clean-VM execute proof remains out of scope here.

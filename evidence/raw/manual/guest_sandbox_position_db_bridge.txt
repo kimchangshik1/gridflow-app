@@ -1,0 +1,61 @@
+# guest_sandbox_position_db_bridge
+
+기준
+- 작성 기준: 2026-04-20 UTC
+- 목적: guest sandbox 포지션/수량이 DB에서 직접 이어지는지 확인한 결과 메모
+- 조회 기준:
+  - guest user ids `128`, `129`
+  - symbols `KRW-XRP`
+  - 관련 테이블 후보: `sandbox_balances`, `sandbox_orders`, `positions`
+
+## Confirmed
+
+### 1. sandbox 계열 스키마 범위
+
+- `sandbox_orders`
+  - 컬럼: `id`, `user_id`, `symbol`, `side`, `price`, `amount_krw`, `status`, `note`, `created_at`, `updated_at`
+- `sandbox_balances`
+  - 컬럼: `id`, `user_id`, `krw_balance`, `updated_at`
+- 확인 결과:
+  - sandbox 계열에는 자산 수량, 평균단가, 포지션 보유량을 저장하는 별도 컬럼이나 별도 테이블이 없다.
+
+### 2. positions 테이블 구조
+
+- `positions`
+  - 컬럼: `id`, `symbol`, `avg_price`, `total_qty`, `total_invested_krw`, `updated_at`
+- 확인 결과:
+  - `positions`에는 `user_id`가 없다.
+  - 따라서 guest user `128`, `129` 기준으로 row를 직접 연결할 수 없다.
+
+## Limited
+
+### 1. UI와 맞는 단서
+
+- Upbit UI/runtime 단서:
+  - guest `128`
+  - BUY 후 `XRP 2.8450`
+  - SELL 후 `XRP 0.2358`
+- Bithumb UI/runtime 단서:
+  - guest `129`
+  - before / after 모두 `현재 보유 포지션이 없습니다`
+- 해석:
+  - UI/runtime에는 포지션 수량 단서가 있다.
+  - 하지만 현재 DB 스키마만으로는 이 수량을 guest별 row로 직접 고정할 수 없다.
+
+## Unavailable
+
+### 1. guest 포지션 수량 DB bridge
+
+- 판정: `unavailable`
+- 이유:
+  - `sandbox_balances`는 KRW 잔액만 가진다.
+  - `sandbox_orders`는 주문 row만 가진다.
+  - `positions`는 `user_id`가 없어 guest `128`, `129`와 직접 연결할 수 없다.
+  - `sandbox_position` 또는 동등한 guest 자산 보유 테이블은 현재 public schema에서 확인되지 않았다.
+
+### 2. user_id별 qty / avg_price bridge
+
+- 판정: `unavailable`
+- 이유:
+  - 현재 확인된 DB 구조에는 guest user 기준 `qty`, `avg_price`를 직접 저장한 sandbox 자산 row가 없다.
+  - 따라서 `XRP 2.8450 -> 0.2358` 같은 UI 단서를 DB row 하나로 직접 브리지하는 것은 이번 범위에서 불가능하다.

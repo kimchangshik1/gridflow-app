@@ -1,0 +1,90 @@
+{
+  "base_url": "https://gridflow.co.kr/",
+  "output_dir": "/home/ubuntu/upbit_bot/evidence/raw/screenshots/manual",
+  "started_at": "2026-04-20T07:36:03.925Z",
+  "shots": [
+    "upbit_guest_buy_result.png",
+    "upbit_guest_sell_result.png",
+    "upbit_guest_position_before_after.png"
+  ],
+  "blocker": null,
+  "guest": {
+    "user_id": 128,
+    "username": "guest_a4803730deb841e7",
+    "is_guest": true,
+    "expires_at": "2026-04-20T08:36:03.998152+00:00"
+  },
+  "buy": {
+    "msg": "",
+    "guestLabel": "guest_a4803730deb841e7 GUEST",
+    "krw": "9994000",
+    "evalVal": "10000000",
+    "firstOrderRow": "20엑스알피(리플)XRP/KRW매수2,1096,000원체결완료4/20 07:36",
+    "firstPositionRow": "엑스알피(리플) XRP 2.8450 2,109 2,108 -0.05% -3원 수동 매매",
+    "selectedSymbol": "KRW-XRP",
+    "selectedPrice": 2108
+  },
+  "sell": {
+    "msg": "",
+    "guestLabel": "guest_a4803730deb841e7 GUEST",
+    "krw": "9994000",
+    "evalVal": "9994497",
+    "firstOrderRow": "21엑스알피(리플)XRP/KRW매도2,1085,500원체결완료4/20 07:36",
+    "firstPositionRow": "엑스알피(리플) XRP 0.2358 2,109 2,108 -0.05% 0원 수동 매매",
+    "selectedSymbol": "KRW-XRP",
+    "selectedPrice": 2108
+  },
+  "balance_compare": {
+    "before": {
+      "msg": "",
+      "guestLabel": "guest_a4803730deb841e7 GUEST",
+      "krw": "10000000",
+      "evalVal": "0",
+      "firstOrderRow": "",
+      "firstPositionRow": "현재 보유 포지션이 없습니다. 전략 화면으로 이동거래 계속하기",
+      "selectedSymbol": "KRW-XRP",
+      "selectedPrice": 2108
+    },
+    "after_buy": {
+      "krw": "9994000",
+      "eval": "10000000",
+      "firstPositionRow": "엑스알피(리플) XRP 2.8450 2,109 2,108 -0.05% -3원 수동 매매"
+    },
+    "after_sell": {
+      "krw": "9994000",
+      "eval": "9994497",
+      "firstPositionRow": "엑스알피(리플) XRP 0.2358 2,109 2,108 -0.05% 0원 수동 매매"
+    }
+  },
+  "buy_request": {
+    "ok": true,
+    "status": 200,
+    "data": {
+      "id": 20,
+      "symbol": "KRW-XRP",
+      "side": "BUY",
+      "price": 2109,
+      "amount_krw": 6000,
+      "status": "FILLED",
+      "note": "sandbox",
+      "created_at": "2026-04-20 07:36:16.746597+00:00",
+      "sandbox": true
+    }
+  },
+  "sell_request": {
+    "ok": true,
+    "status": 200,
+    "data": {
+      "id": 21,
+      "symbol": "KRW-XRP",
+      "side": "SELL",
+      "price": 2108,
+      "amount_krw": 5500,
+      "status": "FILLED",
+      "note": "sandbox",
+      "created_at": "2026-04-20 07:36:21.956495+00:00",
+      "sandbox": true
+    }
+  },
+  "finished_at": "2026-04-20T07:36:27.081Z"
+}

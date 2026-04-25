@@ -1,0 +1,29 @@
+Script path
+- `ops/prepare_clean_vm_db.sh`
+
+Dry-run example
+```bash
+bash ops/prepare_clean_vm_db.sh \
+  --app-dir /tmp/gridflow_first_execute_test/app \
+  --db-url postgresql://tradingbot:password@127.0.0.1:5432/upbit_bot_bootstrap
+```
+
+Execute example
+```bash
+bash ops/prepare_clean_vm_db.sh \
+  --app-dir /opt/gridflow/app \
+  --db-url postgresql://tradingbot:password@127.0.0.1:5432/upbit_bot \
+  --execute
+```
+
+Behavior
+- Default mode is dry-run.
+- `--execute` runs `alembic upgrade head` with `DB_URL` scoped to that command only.
+- After migration it verifies:
+  - `alembic_version` exists
+  - public application table count is `19`
+
+Notes
+- This script is for blank DB bootstrap only.
+- It does not restore data.
+- It does not start services or run nginx/systemctl commands.

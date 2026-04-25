@@ -1,0 +1,21 @@
+[Unit]
+Description=Upbit Trading Bot
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User={{BOT_USER}}
+WorkingDirectory={{APP_DIR}}
+EnvironmentFile={{ENV_FILE}}
+Environment=GRIDFLOW_ENV_FILE={{ENV_FILE}}
+ExecStart={{VENV_PYTHON}} -u -m app.bot
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

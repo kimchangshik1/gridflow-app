@@ -1,0 +1,108 @@
+CLEAN_VM_EXECUTION_PACKET
+Project root: /home/ubuntu/upbit_bot
+Purpose: one-page execution card for the final clean VM first-execute proof
+
+1. Preconditions On Clean VM
+
+- repo is present at a known source path
+- one real values file is prepared from `ops/templates/install_values.example.json`
+- PostgreSQL role/database connectivity is ready for the `DB_URL` in that values file
+- TLS/nginx prerequisites already exist for:
+  - `SERVER_NAME`
+  - `SSL_CERT_PATH`
+  - `SSL_KEY_PATH`
+- target `APP_DIR` does not already exist
+- clean VM check must pass:
+  - `/etc/gridflow` absent
+  - `/etc/systemd/system/gridflow-app.service` absent
+  - `/etc/systemd/system/upbit-bot.service` absent
+  - `/etc/systemd/system/orderlens-ops.service` absent
+  - `/etc/nginx/sites-available/gridflow` absent
+  - target `APP_DIR` absent
+
+2. Values File Keys
+
+Required
+- `APP_DIR`
+- `VENV_PYTHON`
+- `ENV_FILE`
+- `CONFIG_DIR`
+- `APP_USER`
+- `APP_GROUP`
+- `BOT_USER`
+- `MONITOR_USER`
+- `MONITOR_GROUP`
+- `MONITOR_CONFIG_PATH`
+- `MONITOR_AUTH_PATH`
+- `APP_BIND_HOST`
+- `APP_BIND_PORT`
+- `MONITOR_BIND_HOST`
+- `MONITOR_BIND_PORT`
+- `MONITOR_LOG_FILE`
+- `SERVER_NAME`
+- `NGINX_HTTP_PORT`
+- `NGINX_HTTPS_PORT`
+- `SSL_CERT_PATH`
+- `SSL_KEY_PATH`
+- `DB_URL`
+- `MONITOR_EXCHANGE`
+- `MONITOR_API_KEY`
+- `MONITOR_API_SECRET`
+- `MONITOR_PASSWORD_HASH`
+
+Optional
+- `DRY_RUN`
+- `JWT_SECRET`
+- `GRIDFLOW_ALERT_WEBHOOK_URL`
+- `MONITOR_TIER`
+
+3. Clean VM Check
+
+- Do not run execute unless all of these are absent:
+  - `/etc/gridflow`
+  - `/etc/systemd/system/gridflow-app.service`
+  - `/etc/systemd/system/upbit-bot.service`
+  - `/etc/systemd/system/orderlens-ops.service`
+  - `/etc/nginx/sites-available/gridflow`
+  - target `APP_DIR`
+
+4. Final Execute Command
+
+```bash
+bash ops/capture_clean_vm_first_execute.sh --values /path/to/install_values.live.json --target-app-dir /opt/gridflow/app --source-dir /path/to/source/repo --target-root / --allow-live-root --evidence-dir /var/tmp/gridflow_first_execute_evidence --execute
+```
+
+5. Evidence Files
+
+- `/var/tmp/gridflow_first_execute_evidence/run_clean_vm_live_install.log`
+- `/var/tmp/gridflow_first_execute_evidence/systemd_status.txt`
+- `/var/tmp/gridflow_first_execute_evidence/http_checks.txt`
+- `/var/tmp/gridflow_first_execute_evidence/nginx_test.txt`
+- `/var/tmp/gridflow_first_execute_evidence/file_inventory.txt`
+- `/var/tmp/gridflow_first_execute_evidence/CLEAN_VM_FIRST_EXECUTE_EVIDENCE.txt`
+
+6. Success Criteria
+
+- `run_clean_vm_live_install.log` contains DB bootstrap success:
+  - `PASS prepare_clean_vm_db`
+  - or `PASS alembic upgrade head`
+  - or `PASS db verification`
+- activation completed successfully
+- smoke completed successfully
+- `systemd_status.txt` shows expected enabled/active states
+- `http_checks.txt` shows:
+  - `http://127.0.0.1:8000/` -> `200`
+  - `http://127.0.0.1:8010/monitor` -> `302`
+- `nginx_test.txt` is successful
+- `file_inventory.txt` shows expected payload files present
+
+7. First 3 Files To Check On Failure
+
+- `run_clean_vm_live_install.log`
+- `CLEAN_VM_FIRST_EXECUTE_EVIDENCE.txt`
+- `nginx_test.txt`
+
+8. Current Host Restriction
+
+- Do not run this execute command on the current host.
+- Current host is not a clean VM and is blocked by the documented clean-VM guard.

@@ -1,0 +1,12 @@
+{
+  "base_url": "https://gridflow.co.kr/",
+  "output_dir": "/home/ubuntu/upbit_bot/evidence/raw/screenshots/auth",
+  "started_at": "2026-04-20T07:22:53.722Z",
+  "login_attempts": 1,
+  "shots": [
+    "login_error_invalid_credentials.png"
+  ],
+  "error_text": "아이디 또는 비밀번호가 올바르지 않습니다",
+  "blocker": null,
+  "finished_at": "2026-04-20T07:22:56.647Z"
+}

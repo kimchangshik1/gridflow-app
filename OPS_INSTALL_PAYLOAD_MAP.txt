@@ -1,0 +1,50 @@
+OPS_INSTALL_PAYLOAD_MAP
+
+Measured at: 2026-04-20 UTC
+Scope: backup/health-alert/logrotate asset inclusion in repo install payload
+Source rule: measured from current repo files plus currently installed `/etc` files only
+
+1. Included Operational Assets
+
+- gridflow-pg-backup.service
+- gridflow-pg-backup.timer
+- gridflow-health-alert.service
+- gridflow-health-alert.timer
+- logrotate.d/gridflow
+
+2. Source -> Rendered Target
+
+- `/home/ubuntu/upbit_bot/ops/templates/gridflow-pg-backup.service`
+  -> `etc/systemd/system/gridflow-pg-backup.service`
+- `/home/ubuntu/upbit_bot/ops/templates/gridflow-pg-backup.timer`
+  -> `etc/systemd/system/gridflow-pg-backup.timer`
+- `/home/ubuntu/upbit_bot/ops/templates/gridflow-health-alert.service`
+  -> `etc/systemd/system/gridflow-health-alert.service`
+- `/home/ubuntu/upbit_bot/ops/templates/gridflow-health-alert.timer`
+  -> `etc/systemd/system/gridflow-health-alert.timer`
+- `/home/ubuntu/upbit_bot/ops/templates/gridflow.logrotate`
+  -> `etc/logrotate.d/gridflow`
+
+3. Placeholder List
+
+- `{{APP_DIR}}`
+
+4. Placeholder Meaning
+
+- `{{APP_DIR}}`
+  Meaning: repo install path used by backup/health-alert service `ExecStart=` entries and repo-local log file paths in logrotate
+  Used in:
+  - `gridflow-pg-backup.service`
+  - `gridflow-health-alert.service`
+  - `gridflow.logrotate`
+
+5. Files Not Added As Install Payload Targets
+
+- `/home/ubuntu/upbit_bot/ops/gridflow_pg_backup.sh`
+- `/home/ubuntu/upbit_bot/ops/gridflow_pg_restore_verify.sh`
+- `/home/ubuntu/upbit_bot/ops/gridflow_health_alert.sh`
+
+Reason
+- These are repo-resident scripts already addressed by service `ExecStart=` using `{{APP_DIR}}/ops/...`
+- Current measured install structure does not place separate copies of these scripts under `/etc` or another install target
+- Therefore this turn only adds `/etc` payload artifacts that must be rendered

@@ -1,0 +1,22 @@
+health alert duplicate suppression direct proof
+captured_at: 2026-04-24 UTC
+
+sources
+- journalctl -u gridflow-health-alert.service --since '2026-04-22 06:20:00' --until '2026-04-22 06:40:30'
+- journalctl -t gridflow-health --since '2026-04-22 06:20:00' --until '2026-04-22 06:40:30'
+
+sanitization
+- hostnames -> <host>
+- app endpoint -> <app_url>
+- monitor endpoint -> <monitor_url>
+
+sanitized raw excerpt
+- Apr 22 06:24:35 <host> gridflow-health[1290753]: GridFlow health alert on <host>: endpoint app unreachable url=<app_url> endpoint monitor unreachable url=<monitor_url>
+- Apr 22 06:25:18 <host> systemd[1]: Starting gridflow-health-alert.service - GridFlow basic health alert check...
+- Apr 22 06:30:55 <host> systemd[1]: Starting gridflow-health-alert.service - GridFlow basic health alert check...
+- Apr 22 06:38:28 <host> gridflow-health[1291030]: GridFlow health alert on <host>: service upbit-bot.service active=unknown substate=running endpoint app unreachable url=<app_url> endpoint monitor unreachable url=<monitor_url>
+
+reading note
+- the same app+monitor outage appears in both alert lines
+- the unit runs again at 06:25 and 06:30, but there is no second gridflow-health alert line repeating the 06:24 text
+- a new gridflow-health alert line appears only when the problem set changes and upbit-bot joins the failure set at 06:38

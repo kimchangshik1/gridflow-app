@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>OrderLens Ops Setup</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    background: #0A0B0D;
+    color: #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 40px 16px;
+  }
+  .box {
+    background: rgba(20, 22, 25, 0.9);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 32px 36px;
+    width: 460px;
+  }
+
+  /* ── 헤더 ──────────────────────────────────── */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .page-header h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+  .back a { font-size: 12px; color: #3B82F6; text-decoration: none; }
+
+  /* ── 섹션 타이틀 ──────────────────────────── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* ── 거래소 카드 ──────────────────────────── */
+  .exchange-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .exc-card {
+    background: #111317;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 16px 16px 14px;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .exc-card.active {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.04);
+  }
+  .exc-card.inactive {
+    opacity: 0.6;
+  }
+  .exc-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+    margin-bottom: 10px;
+  }
+  .exc-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .exc-status-badge.connected {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  .exc-status-badge.disconnected {
+    background: rgba(75, 85, 99, 0.15);
+    color: #6b7280;
+    border: 1px solid rgba(75, 85, 99, 0.25);
+  }
+  .exc-status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .exc-status-badge.connected::before { background: #10B981; }
+  .exc-status-badge.disconnected::before { background: #4B5563; }
+
+  .exc-detail {
+    font-size: 11px;
+    color: #9ca3af;
+    line-height: 1.6;
+  }
+  .exc-detail span { display: block; }
+  .exc-detail .val { color: #d1d5db; font-family: monospace; font-size: 11px; }
+
+  /* ── 구분선 ──────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 24px 0;
+  }
+
+  /* ── 폼 ──────────────────────────────────── */
+  .form-hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: #9ca3af;
+    margin-bottom: 5px;
+    letter-spacing: 0.02em;
+  }
+  input, select {
+    width: 100%;
+    background: #111317;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 7px;
+    color: #e5e7eb;
+    padding: 9px 11px;
+    font-size: 13px;
+    margin-bottom: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: rgba(59, 130, 246, 0.5); }
+  option { background: #111317; color: #e5e7eb; }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  button { cursor: pointer; font-size: 13px; border-radius: 7px; border: none; padding: 10px 16px; }
+  #btn-save {
+    flex: 1;
+    background: #10B981;
+    color: #fff;
+    font-weight: 600;
+  }
+  #btn-save:hover { background: #059669; }
+  #btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  #btn-delete {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #EF4444;
+    padding: 10px 14px;
+    flex-shrink: 0;
+  }
+  #btn-delete:hover { background: rgba(239,68,68,0.08); }
+
+  #msg { margin-top: 10px; font-size: 13px; text-align: center; min-height: 18px; }
+  .err { color: #EF4444; }
+  .ok  { color: #10B981; }
+
+  /* ── 로그아웃 ─────────────────────────────── */
+  .logout-row {
+    margin-top: 20px;
+    text-align: right;
+  }
+  .logout-row button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #6b7280;
+    font-size: 12px;
+    padding: 6px 14px;
+  }
+  .logout-row button:hover { color: #e5e7eb; border-color: rgba(255,255,255,0.25); }
+
+  /* ── 비밀번호 변경 ────────────────────────── */
+  #btn-pw {
+    width: 100%;
+    background: #3B82F6;
+    color: #fff;
+    font-weight: 600;
+    margin-top: 4px;
+    padding: 10px;
+  }
+  #btn-pw:hover { background: #2563eb; }
+  #btn-pw:disabled { opacity: 0.5; cursor: not-allowed; }
+  #pw-msg { margin-top: 10px; font-size: 13px; text-align: center; min-height: 18px; }
+</style>
+</head>
+<body>
+<div class="box">
+
+  <!-- 헤더 -->
+  <div class="page-header">
+    <h2>OrderLens Ops Setup</h2>
+    <span class="back"><a href="/monitor">← OrderLens Ops</a></span>
+  </div>
+
+  <!-- 지원 거래소 카드 -->
+  <div class="section-title">지원 거래소</div>
+  <div class="exchange-cards" id="exchange-cards">
+    <!-- JS로 렌더링 -->
+    <div class="exc-card inactive">
+      <div class="exc-card-name">Upbit</div>
+      <span class="exc-status-badge disconnected">연결 안 됨</span>
+      <div class="exc-detail"><span>로딩 중…</span></div>
+    </div>
+    <div class="exc-card inactive">
+      <div class="exc-card-name">Bithumb</div>
+      <span class="exc-status-badge disconnected">연결 안 됨</span>
+      <div class="exc-detail"><span>로딩 중…</span></div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- API 입력 폼 -->
+  <div class="section-title">활성 거래소 변경</div>
+  <p class="form-hint">거래소를 선택하고 API 정보를 입력하면 현재 연결된 거래소가 교체됩니다. 한 번에 하나의 거래소만 활성화됩니다.</p>
+
+  <form id="form" autocomplete="off">
+    <label>거래소</label>
+    <select id="exchange" name="exchange">
+      <option value="upbit">Upbit</option>
+      <option value="bithumb">Bithumb</option>
+    </select>
+    <label>API Key</label>
+    <input type="text" name="api_key" placeholder="API Key" autocomplete="off" required>
+    <label>API Secret</label>
+    <input type="password" name="api_secret" placeholder="API Secret" autocomplete="off" required>
+    <div class="btn-row">
+      <button type="submit" id="btn-save">저장</button>
+      <button type="button" id="btn-delete">연결 해제</button>
+    </div>
+  </form>
+  <div id="msg"></div>
+
+  <div class="logout-row">
+    <button id="btn-logout" type="button">로그아웃</button>
+  </div>
+
+  <hr class="divider">
+
+  <!-- 비밀번호 변경 -->
+  <div class="section-title">비밀번호 변경</div>
+  <form id="pw-form" autocomplete="off">
+    <label>현재 비밀번호</label>
+    <input type="password" id="pw-current" autocomplete="current-password" required>
+    <label>새 비밀번호 <span style="color:#4b5563;font-weight:400;">(8자 이상)</span></label>
+    <input type="password" id="pw-new" autocomplete="new-password" required>
+    <label>새 비밀번호 확인</label>
+    <input type="password" id="pw-confirm" autocomplete="new-password" required>
+    <button type="submit" id="btn-pw">비밀번호 변경</button>
+  </form>
+  <div id="pw-msg"></div>
+
+</div>
+<script>
+let _statusSeq = 0;
+
+const EXCHANGE_LABEL = { upbit: 'Upbit', bithumb: 'Bithumb' };
+
+function renderCards(d) {
+  const area = document.getElementById('exchange-cards');
+  const exchanges = ['upbit', 'bithumb'];
+  const activeExch = d.saved ? (d.exchange || '').toLowerCase() : null;
+
+  area.innerHTML = exchanges.map(key => {
+    const label = EXCHANGE_LABEL[key] || key;
+    const isActive = activeExch === key;
+
+    const badgeHtml = isActive
+      ? `<span class="exc-status-badge connected">현재 연결됨</span>`
+      : `<span class="exc-status-badge disconnected">연결 안 됨</span>`;
+
+    let detailHtml = '';
+    if (isActive) {
+      const keyDisplay = d.key_masked || '(없음)';
+      const secretDisplay = d.has_secret ? '저장됨' : '없음';
+      detailHtml = `
+        <div class="exc-detail">
+          <span>API Key&nbsp; <span class="val">${keyDisplay}</span></span>
+          <span>Secret&nbsp;&nbsp; <span class="val">${secretDisplay}</span></span>
+        </div>`;
+    } else {
+      detailHtml = `<div class="exc-detail"><span style="color:#4b5563;">—</span></div>`;
+    }
+
+    return `
+      <div class="exc-card ${isActive ? 'active' : 'inactive'}">
+        <div class="exc-card-name">${label}</div>
+        ${badgeHtml}
+        ${detailHtml}
+      </div>`;
+  }).join('');
+
+  // 폼의 거래소 셀렉트를 현재 저장값으로 맞춤
+  if (activeExch && EXCHANGE_LABEL[activeExch]) {
+    document.getElementById('exchange').value = activeExch;
+  }
+}
+
+async function loadStatus() {
+  const seq = ++_statusSeq;
+  try {
+    const res = await fetch('/monitor/api-status');
+    if (seq !== _statusSeq) return;
+    if (res.status === 401) { location.href = '/monitor/login'; return; }
+    const d = await res.json();
+    if (seq !== _statusSeq) return;
+    renderCards(d);
+  } catch (e) {
+    if (seq !== _statusSeq) return;
+    document.getElementById('exchange-cards').innerHTML =
+      `<div style="grid-column:1/-1;font-size:13px;color:#EF4444;padding:8px 0;">상태 조회 실패</div>`;
+  }
+}
+loadStatus();
+
+document.getElementById('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  msg.textContent = '';
+  const fd = new FormData(e.target);
+  const body = Object.fromEntries(fd);
+  try {
+    const res = await fetch('/monitor/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) { location.href = '/monitor/login'; return; }
+    if (res.ok) {
+      msg.className = 'ok';
+      msg.textContent = '저장 완료.';
+      e.target.querySelector('[name=api_key]').value = '';
+      e.target.querySelector('[name=api_secret]').value = '';
+      loadStatus();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      msg.className = 'err';
+      msg.textContent = d.detail || '저장 실패';
+    }
+  } catch (_) {
+    msg.className = 'err';
+    msg.textContent = '요청 실패';
+  }
+  btn.disabled = false;
+});
+
+document.getElementById('btn-delete').addEventListener('click', async () => {
+  if (!confirm('저장된 API 정보를 삭제합니다.\nMonitor 데이터 조회가 비활성화됩니다. 계속하시겠습니까?')) return;
+  const msg = document.getElementById('msg');
+  try {
+    const res = await fetch('/monitor/setup', { method: 'DELETE' });
+    if (res.status === 401) { location.href = '/monitor/login'; return; }
+    if (res.ok) {
+      msg.className = 'ok';
+      msg.textContent = 'API 정보 삭제 완료.';
+      loadStatus();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      msg.className = 'err';
+      msg.textContent = d.detail || '삭제 실패';
+    }
+  } catch (_) {
+    msg.className = 'err';
+    msg.textContent = '요청 실패';
+  }
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await fetch('/monitor/logout', { method: 'POST' });
+  location.href = '/monitor/login';
+});
+
+document.getElementById('pw-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-pw');
+  const msg = document.getElementById('pw-msg');
+  btn.disabled = true;
+  msg.textContent = '';
+  msg.className = '';
+  const body = {
+    current_password: document.getElementById('pw-current').value,
+    new_password: document.getElementById('pw-new').value,
+    confirm: document.getElementById('pw-confirm').value,
+  };
+  try {
+    const res = await fetch('/monitor/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) { location.href = '/monitor/login'; return; }
+    if (res.ok) {
+      msg.className = 'ok';
+      msg.textContent = '비밀번호가 변경되었습니다. 다시 로그인하세요.';
+      e.target.reset();
+      setTimeout(() => { location.href = '/monitor/login'; }, 1500);
+    } else {
+      const d = await res.json().catch(() => ({}));
+      msg.className = 'err';
+      msg.textContent = d.detail || '변경 실패';
+      btn.disabled = false;
+    }
+  } catch (_) {
+    msg.className = 'err';
+    msg.textContent = '요청 실패';
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

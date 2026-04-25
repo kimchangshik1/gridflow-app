@@ -1,0 +1,71 @@
+Script path
+- `ops/run_clean_vm_live_install.sh`
+
+Dry-run example
+```bash
+bash ops/run_clean_vm_live_install.sh \
+  --values /tmp/gridflow_first_execute_test/install_values.first_execute.json \
+  --target-app-dir /tmp/gridflow_first_execute_test/app \
+  --target-root /tmp/gridflow_first_execute_root
+```
+
+Execute example
+```bash
+bash ops/run_clean_vm_live_install.sh \
+  --values /path/to/install_values.live.json \
+  --target-app-dir /opt/gridflow/app \
+  --source-dir /path/to/source/repo \
+  --target-root / \
+  --allow-live-root \
+  --execute
+```
+
+Override example
+```bash
+bash ops/run_clean_vm_live_install.sh \
+  --values /path/to/install_values.live.json \
+  --target-app-dir /opt/gridflow/app \
+  --source-dir /path/to/source/repo \
+  --target-root / \
+  --allow-live-root \
+  --allow-non-clean-host \
+  --execute
+```
+
+Required inputs
+- `--values`
+- `--target-app-dir`
+- `--source-dir` when the source tree is not the current working directory
+- `--target-root /` plus `--allow-live-root` for real clean VM install
+
+Preconditions
+- PostgreSQL and target DB connectivity must already be prepared.
+- A real values file is prepared from `ops/templates/install_values.example.json`.
+- The source repo is present on the clean VM at the chosen `--source-dir`.
+- TLS/nginx prerequisites are already available for the values file paths:
+  - `SERVER_NAME`
+  - `SSL_CERT_PATH`
+  - `SSL_KEY_PATH`
+- The values file must contain the target `DB_URL` for the blank DB bootstrap step.
+
+Execution behavior
+1. `clean_install_first_execute.sh`
+2. `prepare_clean_vm_db.sh`
+3. `post_install_activate.sh`
+4. `post_install_smoke_check.sh`
+
+Notes
+- Default mode is dry-run.
+- Clean VM guard is enabled by default.
+- Dry-run is allowed on non-clean hosts.
+- `--execute` fails on non-clean hosts when any of these traces already exist:
+  - `/etc/gridflow`
+  - `/etc/systemd/system/gridflow-app.service`
+  - `/etc/systemd/system/upbit-bot.service`
+  - `/etc/systemd/system/orderlens-ops.service`
+  - `/etc/nginx/sites-available/gridflow`
+  - existing `--target-app-dir`
+- `/` target is blocked unless `--allow-live-root` is explicitly set.
+- `--allow-non-clean-host` bypasses only the clean VM guard. It does not bypass `/` protection.
+- On `--execute`, activation and smoke are run with `--execute`.
+- On the current non-clean host, only dry-run was verified.

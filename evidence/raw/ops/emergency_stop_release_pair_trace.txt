@@ -1,0 +1,35 @@
+emergency stop/release pair trace
+captured_at: 2026-04-20 UTC
+
+checked sources
+- audit_logs: `emergency_stop_triggered`, `emergency_stop_reset`
+- activity_logs: emergency/정지 관련 status rows
+- /home/ubuntu/upbit_bot/bot.log.1
+- /home/ubuntu/upbit_bot/OPERATIONS_EVIDENCE.md
+
+stop candidate
+- audit_logs row `238512`
+- event: `emergency_stop_triggered`
+- detail: `{"reason": "balance_query_failed"}`
+- created_at: `2026-04-18 07:37:39.281353+00`
+- matching bot.log.1 lines near file head:
+  - `[ERROR] 잔고 조회 실패: 요청 수 제한 파싱에 실패했습니다.`
+  - `[EMERGENCY] 비상정지 발동: balance_query_failed`
+  - `[EMERGENCY] 정지 상태: balance_query_failed`
+
+release candidate
+- latest audit reset row in checked history: `5258`
+- event: `emergency_stop_reset`
+- detail: `{"reason": "auto_recovered"}`
+- created_at: `2026-03-22 07:14:07.374159+00`
+- no reset line matching the 2026-04-18 stop window was found in `bot.log` / `bot.log.1`
+
+link reasoning
+- the latest stop candidate is on `2026-04-18`
+- the latest reset candidate is much earlier on `2026-03-22`
+- `bot.log.1` continues to show repeated `[EMERGENCY] 정지 상태: balance_query_failed` lines after the 2026-04-18 trigger
+- checked `activity_logs` did not expose a same-incident emergency release row for the 2026-04-18 stop
+- older same-day stop/release pairs do exist in `activity_logs` on `2026-04-03`, but they are not linked to the latest `2026-04-18` incident
+
+final verdict
+- pair_not_found

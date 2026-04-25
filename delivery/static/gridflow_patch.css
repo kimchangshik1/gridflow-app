@@ -1,0 +1,4 @@
+#limit-area .moved-symbol-price-block{cursor:pointer !important;}
+#limit-area .moved-symbol-price-block:hover .order-header-price{background:var(--bg4,#252b33) !important;}
+#market-current-price-card{cursor:default !important;pointer-events:none !important;}
+#market-sel-change{display:none !important;}

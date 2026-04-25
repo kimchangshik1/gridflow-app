@@ -1,0 +1,84 @@
+LOCAL_INSTALL_PIPELINE_PROOF
+
+Measured at: 2026-04-20 UTC
+Scope: local non-live clean-install pipeline proof using repo install tools only
+
+1. Input Files
+
+- /home/ubuntu/upbit_bot/ops/generate_monitor_password_hash.py
+- /home/ubuntu/upbit_bot/ops/render_install_payload.py
+- /home/ubuntu/upbit_bot/ops/apply_install_payload.py
+- /home/ubuntu/upbit_bot/ops/apply_install_permissions.py
+- /home/ubuntu/upbit_bot/ops/install_permissions.json
+- /home/ubuntu/upbit_bot/ops/templates/install_values.example.json
+- /home/ubuntu/upbit_bot/ops/templates/install_values.rehearsal.json
+
+2. Render Root
+
+- /home/ubuntu/upbit_bot/_install_render_rehearsal
+
+3. Target Root
+
+- /tmp/gridflow_clean_rehearsal_root
+
+4. Executed Commands
+
+```bash
+./venv/bin/python ops/generate_monitor_password_hash.py --password 'RehearsalMonitorPass_2026!'
+./venv/bin/python ops/render_install_payload.py --values ops/templates/install_values.rehearsal.json --output-dir _install_render_rehearsal
+python3 ops/apply_install_payload.py --target-root / --dry-run
+python3 ops/apply_install_payload.py --source-root _install_render_rehearsal --target-root /tmp/gridflow_clean_rehearsal_root --dry-run
+python3 ops/apply_install_payload.py --source-root _install_render_rehearsal --target-root /tmp/gridflow_clean_rehearsal_root
+python3 ops/apply_install_permissions.py --target-root /tmp/gridflow_clean_rehearsal_root --dry-run
+sudo -n python3 ops/apply_install_permissions.py --target-root /tmp/gridflow_clean_rehearsal_root
+find /tmp/gridflow_clean_rehearsal_root/etc -type f | sort
+sudo -n python3 - <<'PY'
+from pathlib import Path
+import stat, pwd, grp
+paths = [
+    '/tmp/gridflow_clean_rehearsal_root/etc/systemd/system/gridflow-app.service',
+    '/tmp/gridflow_clean_rehearsal_root/etc/systemd/system/upbit-bot.service',
+    '/tmp/gridflow_clean_rehearsal_root/etc/systemd/system/orderlens-ops.service',
+    '/tmp/gridflow_clean_rehearsal_root/etc/nginx/sites-available/gridflow',
+    '/tmp/gridflow_clean_rehearsal_root/etc/gridflow/gridflow.env',
+    '/tmp/gridflow_clean_rehearsal_root/etc/gridflow/monitor_config.json',
+    '/tmp/gridflow_clean_rehearsal_root/etc/gridflow/monitor_auth.json',
+]
+for p in paths:
+    st = Path(p).stat()
+    print(f"{p}|{pwd.getpwuid(st.st_uid).pw_name}|{grp.getgrgid(st.st_gid).gr_name}|{format(stat.S_IMODE(st.st_mode), '04o')}")
+PY
+```
+
+5. Generated File List
+
+- /tmp/gridflow_clean_rehearsal_root/etc/systemd/system/gridflow-app.service
+- /tmp/gridflow_clean_rehearsal_root/etc/systemd/system/upbit-bot.service
+- /tmp/gridflow_clean_rehearsal_root/etc/systemd/system/orderlens-ops.service
+- /tmp/gridflow_clean_rehearsal_root/etc/nginx/sites-available/gridflow
+- /tmp/gridflow_clean_rehearsal_root/etc/gridflow/gridflow.env
+- /tmp/gridflow_clean_rehearsal_root/etc/gridflow/monitor_config.json
+- /tmp/gridflow_clean_rehearsal_root/etc/gridflow/monitor_auth.json
+
+6. Permission Verification Result
+
+- etc/systemd/system/gridflow-app.service -> ubuntu:ubuntu 0644
+- etc/systemd/system/upbit-bot.service -> ubuntu:ubuntu 0644
+- etc/systemd/system/orderlens-ops.service -> ubuntu:ubuntu 0644
+- etc/nginx/sites-available/gridflow -> ubuntu:ubuntu 0644
+- etc/gridflow/gridflow.env -> root:root 0600
+- etc/gridflow/monitor_config.json -> root:monitor 0660
+- etc/gridflow/monitor_auth.json -> root:monitor 0660
+
+7. Live Unmodified Confirmation
+
+- render output used `/home/ubuntu/upbit_bot/_install_render_rehearsal`
+- apply target used `/tmp/gridflow_clean_rehearsal_root`
+- live root `/` apply attempt was explicitly blocked without `--allow-live-root`
+- no write was performed under `/etc`, `/etc/systemd/system`, or `/etc/nginx`
+
+8. Remaining Blockers
+
+- this proof stops at rendered file deployment and permission application; no `systemctl daemon-reload`, service start, or `nginx reload` was executed
+- directory owner/group/mode policy is still separate from file policy
+- the rehearsal values file is intentionally non-live and still requires environment-specific replacement for real deployment

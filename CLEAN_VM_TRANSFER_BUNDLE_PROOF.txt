@@ -1,0 +1,32 @@
+CLEAN_VM_TRANSFER_BUNDLE_PROOF
+
+Bundle
+- path: `/tmp/gridflow_clean_vm_bundle_out/gridflow_clean_vm_bundle_20260420_075739.tar.gz`
+- size: `76101751` bytes
+- sha256: `a4e6d973a55dff2714e317b18149e0086b2fd01d67b2b5a47a7ba93b8550c4ac`
+
+Generated verification artifacts
+- checksum file: `/tmp/gridflow_clean_vm_bundle_out/gridflow_clean_vm_bundle_20260420_075739.tar.gz.sha256`
+- manifest file: `/tmp/gridflow_clean_vm_bundle_out/gridflow_clean_vm_bundle_20260420_075739.manifest.txt`
+- manifest entries: `7118`
+
+Unpack smoke
+- unpack path: `/tmp/gridflow_clean_vm_bundle_unpack_20260420_075739`
+- result: `PASS`
+
+Core file checks
+- `PASS` `upbit_bot/ops/run_clean_vm_live_install.sh`
+- `PASS` `upbit_bot/ops/capture_clean_vm_first_execute.sh`
+- `PASS` `upbit_bot/ops/prepare_clean_vm_db.sh`
+- `PASS` `upbit_bot/ops/templates/install_values.example.json`
+- `PASS` `upbit_bot/CLEAN_VM_EXECUTION_PACKET.txt`
+- `PASS` `upbit_bot/CLEAN_VM_LIVE_INSTALL.txt`
+- `PASS` `upbit_bot/CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt`
+
+Current host restriction
+- live install was not executed on this host
+- `/etc`, systemd, nginx, and PostgreSQL were not modified
+
+Readiness
+- first-pass clean VM transfer readiness: `READY`
+- basis: checksum fixed, manifest captured, bundle unpacked successfully, required handoff files present

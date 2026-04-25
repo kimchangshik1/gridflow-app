@@ -1,0 +1,57 @@
+GRIDFLOW DOCUMENT INDEX
+
+문서 목적
+- GridFlow 운영/설치/인수인계 관련 txt 문서를 역할별로 먼저 볼 순서대로 정리한다.
+- 이 문서는 2026-04-18 기준 저장소 내 확인 가능한 txt 문서만 반영한다.
+
+구매자용 먼저 볼 문서
+- GRIDFLOW_PRIVATE_DEPLOYMENT_SCOPE.txt
+  - 설치형 납품 범위와 운영 책임 경계를 설명한다.
+- GRIDFLOW_PRIVATE_HANDOFF_RUNBOOK.txt
+  - 납품 후 고객이 직접 확인해야 할 운영 절차를 설명한다.
+- D_OPERATIONS_RUNBOOK.txt
+  - 서버 운영 기준의 백업, 복구, 로그, health alert 점검 방법을 설명한다.
+
+설치자용 먼저 볼 문서
+- GRIDFLOW_PRIVATE_INSTALL_CHECKLIST.txt
+  - 납품 전 설치 완료 여부를 점검하는 체크리스트다.
+- GRIDFLOW_RELEASE_QUALITY_GATES.txt
+  - 외부 공개 또는 실납품 전 내부 품질 게이트 기준이다.
+- D_OPERATIONS_RUNBOOK.txt
+  - 실제 서버 운영 구성, 백업, 복구, 로그, alert 점검 기준이다.
+- GRIDFLOW_PRIVATE_DEPLOYMENT_SCOPE.txt
+  - 납품 범위와 비포함 범위를 다시 확인할 때 본다.
+
+운영자용 먼저 볼 문서
+- D_OPERATIONS_RUNBOOK.txt
+  - 백업, 복구 검증, logrotate, health alert 구조와 점검 명령이 정리돼 있다.
+- GRIDFLOW_PRIVATE_HANDOFF_RUNBOOK.txt
+  - 고객 관점의 기본 운영 점검 루틴과 장애 시 1차 점검 순서가 있다.
+- MONITOR_RUN_GUIDE.txt
+  - OrderLens Ops 실행 방법과 접속 경로를 설명한다.
+- MONITOR_DELIVERY_CHECKLIST.txt
+  - 모니터 화면의 기본 납품 확인 항목을 짧게 확인할 때 본다.
+
+장애 시 먼저 볼 문서
+- D_OPERATIONS_RUNBOOK.txt
+  - health alert, 백업, 복구 검증, 로그 위치를 바로 확인할 수 있다.
+- GRIDFLOW_PRIVATE_HANDOFF_RUNBOOK.txt
+  - 서비스 상태, 로그, API 키, 거래소 응답, 백업 상태의 1차 점검 순서가 있다.
+- GRIDFLOW_PRIVATE_INSTALL_CHECKLIST.txt
+  - 설치 누락, 서비스 상태, endpoint 응답, 로그/모니터링 항목을 재대조할 때 본다.
+
+내부 품질판정 문서
+- GRIDFLOW_RELEASE_QUALITY_GATES.txt
+  - 내부 PASS/HOLD/FAIL 기준 문서다.
+- GRIDFLOW_RELEASE_EVIDENCE.txt
+  - 2026-04-18 기준 확인 가능한 운영/배포 근거를 모은 사실 기록 문서다.
+
+기타 운영/배포 관련 txt
+- MONITOR_RUN_GUIDE.txt
+- MONITOR_DELIVERY_CHECKLIST.txt
+- MONITOR_ENV_EXAMPLE.txt
+
+문서 사용 메모
+- 고객 전달 우선 문서는 scope, handoff runbook, operations runbook 순서로 보는 것이 적합하다.
+- 설치 재현 또는 출시 판정은 install checklist와 release quality gates를 함께 봐야 한다.
+- 공식 현재 PASS/HOLD/FAIL 결론 문서는 저장소에서 별도로 확인하지 못했다. 최신 판정은 GRIDFLOW_RELEASE_EVIDENCE.txt에 미확인으로 기록한다.

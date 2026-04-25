@@ -1,0 +1,253 @@
+DB_SCHEMA_INVENTORY
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+DB target: PostgreSQL public schema in upbit_bot
+Method: live PostgreSQL introspection + repository code inspection only
+
+1. Scope Checked
+
+- Live DB tables from public schema
+- Live DB columns, PK/FK constraints, indexes, row estimates
+- Code model definitions:
+  /home/ubuntu/upbit_bot/app/db/models.py
+  /home/ubuntu/upbit_bot/app/db/database.py
+- Code table usage:
+  auth/api/strategy/monitor modules under /home/ubuntu/upbit_bot/app
+
+2. Live Table List
+
+Total live tables: 19
+
+- activity_logs
+- audit_logs
+- backtest_results
+- bot_configs
+- dca_orders
+- dca_strategies
+- grid_orders
+- grid_strategies
+- ip_login_failures
+- planned_orders
+- positions
+- rebalancing_assets
+- rebalancing_orders
+- rebalancing_strategies
+- sandbox_balances
+- sandbox_orders
+- state_transition_logs
+- user_sessions
+- users
+
+3. Code-Defined ORM Tables
+
+Defined in app/db/models.py: 6
+
+- users
+- planned_orders
+- state_transition_logs
+- positions
+- audit_logs
+- bot_configs
+
+4. Table Inventory
+
+Format:
+table | purpose | PK | key columns | FK/dependencies | app-start minimum | seed needed | migration class
+
+- users | account/auth/user state source of truth | id | username, password_hash, is_admin, is_active, is_dry_run, is_guest, expires_at, login_fail_count, login_locked_until, login_fail_window_start | referenced by bot_configs, planned_orders, audit_logs, backtest_results, dca_*, grid_*, rebalancing_*, sandbox_*, state_transition_logs, user_sessions | yes | yes for at least one non-guest admin-capable user if admin-only flows must be usable on a fresh server | seed + operational
+- user_sessions | persisted login sessions | token | user_id, username, is_admin, created_at, expires_at | FK user_id -> users.id | no | no | operational
+- ip_login_failures | DB-backed IP lockout counters | ip | fail_count, locked_until, fail_window_start, updated_at | none | no | no | empty-schema-ok operational
+- bot_configs | encrypted per-user API key storage | id | user_id, key, value, updated_at | FK user_id -> users.id; unique (user_id, key) | yes for current upbit-bot manager path because startup user scan LEFT JOINs bot_configs | no | seedable-empty + operational
+- planned_orders | internal order source of truth and lifecycle tracking | id | idempotency_key, symbol, side, price, amount_krw, status, exchange, exchange_order_id, filled_amount_krw, filled_qty, user_id | FK user_id -> users.id; logical parent of state_transition_logs | yes because ORM init_db manages it and order manager uses it broadly | no | seedable-empty + operational
+- state_transition_logs | order status transition history | id | planned_order_id, from_status, to_status, reason, extra, created_at, user_id | live FK only user_id -> users.id; logical dependency on planned_orders.id but no live FK | yes because ORM init_db manages it | no | seedable-empty + operational
+- audit_logs | audit/event trail | id | event, symbol, detail, created_at, user_id | live FK user_id -> users.id | yes because ORM init_db manages it | no | seedable-empty + operational
+- positions | legacy/current position summary table | id | symbol, avg_price, total_qty, total_invested_krw, updated_at | unique(symbol) | yes because ORM init_db manages it, though current feature usage is weak | no | seedable-empty
+- activity_logs | user-facing activity/event feed | id | user_id, event_type, symbol, exchange, side, status, status_ko, strategy_type, price, amount_krw, created_at | no live FK; app inserts and monitor/API read it extensively | yes for full current feature set because strategy/reconciler flows insert into it | no | seedable-empty + operational
+- backtest_results | saved backtest outputs per user | id | user_id, strategy_type, symbol, exchange, period_days, total_profit, profit_pct, mdd, created_at | FK user_id -> users.id | no | no | operational
+- dca_strategies | DCA strategy definitions | id | user_id, exchange, symbol, strategy_type, status, total_amount, amount_per_order, total_rounds, completed_rounds, scheduling/risk fields | FK user_id -> users.id | yes for full current upbit-bot path because DCAEngine queries active strategies every cycle | no | seedable-empty + operational
+- dca_orders | DCA order history/execution records | id | strategy_id, user_id, exchange, symbol, round_num, price, amount_krw, qty, status, exchange_order_id, created_at | FK strategy_id -> dca_strategies.id; FK user_id -> users.id | yes for full current upbit-bot path because DCAEngine checks submitted orders every cycle | no | seedable-empty + operational
+- grid_strategies | grid strategy definitions | id | user_id, exchange, symbol, status, base_price, range_pct, grid_count, amount_per_grid, profit_gap, risk/smart-sell fields | FK user_id -> users.id | yes for full current upbit-bot path because GridEngine queries/updates it | no | seedable-empty + operational
+- grid_orders | per-grid order ladder and execution state | id | strategy_id, user_id, exchange, symbol, side, grid_level, buy_price, sell_price, amount_krw, qty, status, order ids, trailing fields | FK strategy_id -> grid_strategies.id; FK user_id -> users.id | yes for full current upbit-bot path because GridEngine queries/updates it | no | seedable-empty + operational
+- rebalancing_strategies | rebalancing strategy definitions | id | user_id, exchange, name, status, trigger_type, interval_hours, threshold_pct, risk/limit fields, next_rebal_at | FK user_id -> users.id | yes for full current upbit-bot path because RebalancingEngine queries active strategies | no | seedable-empty + operational
+- rebalancing_assets | target/current asset allocations per rebalancing strategy | id | strategy_id, user_id, symbol, target_pct, current_pct, current_qty, current_value_krw, avg_price | FK strategy_id -> rebalancing_strategies.id; FK user_id -> users.id | yes for full current rebalancing path | no | seedable-empty + operational
+- rebalancing_orders | rebalancing-generated order history | id | strategy_id, user_id, symbol, side, price, amount_krw, qty, before_pct, after_pct, target_pct, status, exchange_order_id, created_at | FK strategy_id -> rebalancing_strategies.id; FK user_id -> users.id | yes for full current rebalancing path because engine checks submitted orders | no | seedable-empty + operational
+- sandbox_balances | dry-run KRW balance per user | id | user_id, krw_balance, updated_at | FK user_id -> users.id; unique(user_id) | yes for dry-run feature paths and rebalancing dry-run balance lookup | no | seedable-empty + operational
+- sandbox_orders | dry-run order records | id | user_id, symbol, side, price, amount_krw, status, note, created_at, updated_at | FK user_id -> users.id | no for service startup; needed for dry-run order/positions flows | no | operational
+
+5. Key Dependency Summary
+
+- users is the root table for almost all runtime relations.
+- Strategy families:
+  grid_strategies -> grid_orders
+  dca_strategies -> dca_orders
+  rebalancing_strategies -> rebalancing_assets, rebalancing_orders
+- planned_orders is the internal order source of truth used by ORM/order manager/API paths.
+- state_transition_logs is logically child-of planned_orders, but the live DB does not enforce that relation with a foreign key.
+- sandbox_balances and sandbox_orders depend on users and support dry-run flows.
+- user_sessions, bot_configs, backtest_results, audit_logs also depend on users.
+
+6. Seed-Needed Tables
+
+- users
+  Evidence:
+  auth flow persists real users in users.
+  create_user() always creates non-admin users.
+  admin-only routes require an existing admin session.
+  Live DB currently has at least 1 admin row and 4 non-guest rows.
+  First-pass bootstrap reading:
+  a fresh empty DB can accept guest sessions, but admin-only user/key management needs an admin user seeded or manually elevated.
+
+No other table has code evidence that mandatory initial rows must exist before the app can start.
+
+7. Operational Data Tables
+
+- users
+- user_sessions
+- ip_login_failures
+- bot_configs
+- planned_orders
+- state_transition_logs
+- audit_logs
+- activity_logs
+- backtest_results
+- dca_strategies
+- dca_orders
+- grid_strategies
+- grid_orders
+- rebalancing_strategies
+- rebalancing_assets
+- rebalancing_orders
+- sandbox_balances
+- sandbox_orders
+
+Notes:
+- positions is the only live table with zero rows and weak current usage; it looks bootstrap-safe to recreate empty.
+- Most other tables contain live data now and should be treated as migration/restore data, not disposable scratch schema.
+
+8. Empty-DB Bootstrap Classification
+
+- Schema-only empty bootstrap appears acceptable:
+  activity_logs
+  audit_logs
+  backtest_results
+  bot_configs
+  dca_orders
+  dca_strategies
+  grid_orders
+  grid_strategies
+  ip_login_failures
+  planned_orders
+  positions
+  rebalancing_assets
+  rebalancing_orders
+  rebalancing_strategies
+  sandbox_balances
+  sandbox_orders
+  state_transition_logs
+  user_sessions
+
+- Seed/bootstrap data needed:
+  users
+
+- Restore/migration data needed for production continuity:
+  users
+  bot_configs
+  planned_orders
+  state_transition_logs
+  audit_logs
+  activity_logs
+  backtest_results
+  dca_strategies
+  dca_orders
+  grid_strategies
+  grid_orders
+  rebalancing_strategies
+  rebalancing_assets
+  rebalancing_orders
+  sandbox_balances
+  sandbox_orders
+  user_sessions
+  ip_login_failures
+
+9. First-Pass Bootstrap Verdict
+
+- Strict “service can connect to DB and app/main.py can call init_db()”:
+  partially yes
+  Reason:
+  init_db() only creates ORM tables from app/db/models.py plus two ALTER TABLE additions on users.
+
+- Full current production feature set on an empty DB:
+  no
+  Reason:
+  13 live runtime tables are not defined in app/db/models.py and therefore are not created by init_db().
+  Current bot/API/auth code directly queries/inserts into those tables:
+  activity_logs
+  backtest_results
+  dca_orders
+  dca_strategies
+  grid_orders
+  grid_strategies
+  ip_login_failures
+  rebalancing_assets
+  rebalancing_orders
+  rebalancing_strategies
+  sandbox_balances
+  sandbox_orders
+  user_sessions
+
+10. DB vs Code Mismatches
+
+- Live DB tables not defined in app/db/models.py:
+  activity_logs
+  backtest_results
+  dca_orders
+  dca_strategies
+  grid_orders
+  grid_strategies
+  ip_login_failures
+  rebalancing_assets
+  rebalancing_orders
+  rebalancing_strategies
+  sandbox_balances
+  sandbox_orders
+  user_sessions
+
+- Code ORM tables missing from live DB:
+  none
+
+- Live DB columns present but absent from ORM model:
+  users.login_fail_window_start
+  audit_logs.user_id
+  state_transition_logs.user_id
+
+- Logical relation present in code/usage but not enforced by live FK:
+  state_transition_logs.planned_order_id -> planned_orders.id
+
+- Live DB has additional FKs not represented in ORM model:
+  audit_logs.user_id -> users.id
+  state_transition_logs.user_id -> users.id
+
+11. Risk Notes
+
+- Baseline migration built only from app/db/models.py will be incomplete and will not recreate the production schema.
+- auth routes rely on users.login_fail_window_start and ip_login_failures; these are outside ORM-managed schema.
+- current feature code heavily uses raw SQL for strategy/rebalancing/sandbox/session tables, so ORM metadata is not the real schema source of truth.
+- state_transition_logs lacks a live FK to planned_orders, so orphaned transition rows are possible unless migration adds or intentionally preserves this gap.
+- user_sessions and guest-user cleanup are DB-backed; dropping/restoring users without session coordination can create auth inconsistencies.
+
+12. Next-Turn Migration Cautions
+
+- Build the baseline migration from live DB inventory, not from ORM metadata alone.
+- Preserve all 19 tables, their PK/unique/index definitions, and current FK graph.
+- Decide explicitly whether to keep or add the missing FK from state_transition_logs.planned_order_id to planned_orders.id; adding it may fail on existing orphaned data if any exists.
+- Backfill ORM-missing live columns:
+  users.login_fail_window_start
+  audit_logs.user_id
+  state_transition_logs.user_id
+- Keep unique constraints/indexes that affect app behavior:
+  users.username unique
+  planned_orders.idempotency_key unique
+  bot_configs (user_id, key) unique
+  sandbox_balances.user_id unique
+  positions.symbol unique
+- Treat users seed/bootstrap separately from the rest of the schema because admin-capable first access depends on it.

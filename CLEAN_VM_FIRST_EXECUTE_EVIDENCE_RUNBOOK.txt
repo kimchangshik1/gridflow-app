@@ -1,0 +1,48 @@
+Script path
+- `ops/capture_clean_vm_first_execute.sh`
+
+Dry-run example
+```bash
+bash ops/capture_clean_vm_first_execute.sh \
+  --values /tmp/gridflow_first_execute_test/install_values.first_execute.json \
+  --target-app-dir /tmp/gridflow_first_execute_test/app \
+  --target-root /tmp/gridflow_first_execute_root \
+  --evidence-dir /tmp/gridflow_first_execute_evidence
+```
+
+Execute example
+```bash
+bash ops/capture_clean_vm_first_execute.sh \
+  --values /path/to/install_values.live.json \
+  --target-app-dir /opt/gridflow/app \
+  --source-dir /path/to/source/repo \
+  --target-root / \
+  --allow-live-root \
+  --evidence-dir /var/tmp/gridflow_first_execute_evidence \
+  --execute
+```
+
+Evidence dir structure
+- `run_clean_vm_live_install.log`
+- `systemd_status.txt`
+- `http_checks.txt`
+- `nginx_test.txt`
+- `file_inventory.txt`
+- `CLEAN_VM_FIRST_EXECUTE_EVIDENCE.txt`
+
+DB bootstrap evidence
+- `run_clean_vm_live_install.log` must include the `prepare_clean_vm_db.sh` step from the live-install wrapper.
+- `CLEAN_VM_FIRST_EXECUTE_EVIDENCE.txt` summarizes DB bootstrap evidence from that run log.
+- Minimum expected evidence is one of:
+  - `PASS prepare_clean_vm_db`
+  - `PASS alembic upgrade head`
+  - `PASS db verification`
+
+Notes
+- Default mode is dry-run.
+- Clean VM guard is active through `ops/run_clean_vm_live_install.sh`.
+- Dry-run is allowed on non-clean hosts.
+- `--execute` is blocked on non-clean hosts unless `--allow-non-clean-host` is explicitly passed through.
+- Real execute must be run only on an actual clean VM.
+- The wrapper first runs `ops/run_clean_vm_live_install.sh`, then collects read-only evidence files.
+- On the current host, only dry-run was verified.

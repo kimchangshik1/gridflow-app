@@ -1,0 +1,133 @@
+# guest_sandbox_db_extract
+
+기준
+- 작성 기준: 2026-04-20 UTC
+- 범위: guest sandbox runtime 결과와 매핑되는 sanitized DB raw bridge
+- 조회 기준:
+  - Upbit guest sandbox runtime ids `20`, `21`
+  - Bithumb guest sandbox runtime ids `22`, `23`
+  - user ids `128`, `129`
+
+## Confirmed
+
+### 1. sandbox_orders raw bridge
+
+- `upbit`
+  - row `20`
+  - `symbol=KRW-XRP`
+  - `side=BUY`
+  - `price=2109.00`
+  - `amount_krw=6000.00`
+  - `status=FILLED`
+  - `note=시장가`
+  - `created_at=2026-04-20 07:36:16.746597+00`
+- `upbit`
+  - row `21`
+  - `symbol=KRW-XRP`
+  - `side=SELL`
+  - `price=2108.00`
+  - `amount_krw=5500.00`
+  - `status=FILLED`
+  - `note=시장가`
+  - `created_at=2026-04-20 07:36:21.956495+00`
+- `bithumb`
+  - row `22`
+  - `symbol=KRW-XRP`
+  - `side=BUY`
+  - `price=2104.00`
+  - `amount_krw=6000.00`
+  - `status=FILLED`
+  - `note=bithumb:시장가`
+  - `created_at=2026-04-20 07:42:41.573338+00`
+- `bithumb`
+  - row `23`
+  - `symbol=KRW-XRP`
+  - `side=SELL`
+  - `price=2105.00`
+  - `amount_krw=5500.00`
+  - `status=FILLED`
+  - `note=bithumb:시장가`
+  - `created_at=2026-04-20 07:42:45.739775+00`
+- 매핑 단서:
+  - 위 4개 row id와 시각, `symbol`, `side`, `price`, `amount_krw`가 runtime JSON의 guest sandbox 결과와 일치한다.
+
+### 2. activity_logs raw bridge
+
+- `upbit`
+  - row `46520`
+  - `event_type=manual_order`
+  - `symbol=KRW-XRP`
+  - `side=BUY`
+  - `status=FILLED`
+  - `status_ko=체결완료`
+  - `strategy_type=수동`
+  - `price=2109.0`
+  - `amount_krw=6000.0`
+  - `created_at=2026-04-20 07:36:16.746597+00`
+- `upbit`
+  - row `46521`
+  - `event_type=manual_order`
+  - `symbol=KRW-XRP`
+  - `side=SELL`
+  - `status=FILLED`
+  - `status_ko=체결완료`
+  - `strategy_type=수동`
+  - `price=2108.0`
+  - `amount_krw=5500.0`
+  - `created_at=2026-04-20 07:36:21.956495+00`
+- `bithumb`
+  - row `46522`
+  - `event_type=manual_order`
+  - `symbol=KRW-XRP`
+  - `side=BUY`
+  - `status=FILLED`
+  - `status_ko=체결완료`
+  - `strategy_type=수동`
+  - `price=2104.0`
+  - `amount_krw=6000.0`
+  - `created_at=2026-04-20 07:42:41.573338+00`
+- `bithumb`
+  - row `46523`
+  - `event_type=manual_order`
+  - `symbol=KRW-XRP`
+  - `side=SELL`
+  - `status=FILLED`
+  - `status_ko=체결완료`
+  - `strategy_type=수동`
+  - `price=2105.0`
+  - `amount_krw=5500.0`
+  - `created_at=2026-04-20 07:42:45.739775+00`
+- 매핑 단서:
+  - 각 activity row의 시각과 금액이 sandbox_orders / runtime JSON과 같은 초 단위로 맞물린다.
+
+## Limited
+
+### 1. sandbox_balances raw bridge
+
+- `upbit guest user_id=128`
+  - row `9104`
+  - `krw_balance=9994000.00`
+  - `updated_at=2026-04-20 07:36:04.96199+00`
+- `bithumb guest user_id=129`
+  - row `9136`
+  - `krw_balance=9994000.00`
+  - `updated_at=2026-04-20 07:42:29.438646+00`
+- 해석 한계:
+  - raw row는 최종 KRW balance 한 줄만 보여준다.
+  - BUY 전/후, SELL 후 재증가까지의 시계열은 이 extract만으로 닫히지 않는다.
+
+### 2. qty / position bridge
+
+- sandbox_orders 스키마에는 `qty` 컬럼이 없다.
+- 따라서 DB raw pack 기준으로는 `amount_krw` / `price` / `status`까지만 직접 확인된다.
+- 포지션 수량 변화는 기존 runtime JSON / UI 캡처를 함께 봐야 한다.
+
+## Missing
+
+### 1. sandbox_balances 시계열
+
+- BUY 직전 / BUY 직후 / SELL 직후 KRW 변화 row 묶음은 이번 extract에 없다.
+
+### 2. sandbox position DB table bridge
+
+- 현재 확인 범위에서는 guest 포지션 수량 변화를 직접 보여주는 별도 DB raw table은 포함하지 않았다.

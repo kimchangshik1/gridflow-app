@@ -1,0 +1,6 @@
+restore verify snapshot
+captured_at: 2026-04-20 UTC
+source_file: /var/log/gridflow_restore_verify.log
+
+2026-04-20T06:45:55Z START restore_verify dump=/var/backups/gridflow/upbit_bot_20260420_032935.dump db=gridflow_restore_verify_20260420_064555
+2026-04-20T06:45:57Z OK restore_verify tables=19 estimated_rows=285895 key_tables=activity_logs, grid_orders, grid_strategies, planned_orders, users

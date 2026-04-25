@@ -1,0 +1,265 @@
+BOOTSTRAP_RUNBOOK
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Scope: first-install bootstrap sequence from actual repository files and installed operating files only
+Rule: commands without direct evidence are marked as unconfirmed
+
+1. Installation Preconditions
+
+- Final source path must be: /home/ubuntu/upbit_bot
+  Evidence: all three live systemd units set WorkingDirectory=/home/ubuntu/upbit_bot and ExecStart paths under /home/ubuntu/upbit_bot/venv/bin/python3.
+- Python virtualenv path must be: /home/ubuntu/upbit_bot/venv
+  Evidence: live systemd ExecStart paths; observed files:
+  /home/ubuntu/upbit_bot/venv/bin/python3
+  /home/ubuntu/upbit_bot/venv/bin/pip
+- Python package list source is: /home/ubuntu/upbit_bot/requirements-web.txt
+  Evidence: file exists and contains FastAPI/uvicorn/SQLAlchemy/psycopg2/python-dotenv/etc.
+- Runtime config directory must exist: /etc/gridflow
+  Evidence: live units and code reference /etc/gridflow/gridflow.env, /etc/gridflow/monitor_config.json, /etc/gridflow/monitor_auth.json; orderlens-ops.service ExecStartPre creates /etc/gridflow.
+- Local PostgreSQL 16 runtime must exist and accept local connections for database upbit_bot
+  Evidence:
+  /etc/postgresql/16/main/postgresql.conf shows port=5432 and unix_socket_directories=/var/run/postgresql
+  /etc/postgresql/16/main/pg_hba.conf allows 127.0.0.1/32 md5
+  current DB URL target is localhost:5432 / database upbit_bot / user tradingbot
+- nginx must be installed and configured with site file /etc/nginx/sites-available/gridflow and enabled link /etc/nginx/sites-enabled/gridflow
+  Evidence: live file and symlink exist; site proxies / -> 127.0.0.1:8000 and /monitor -> 127.0.0.1:8010
+- Live unit files expected under /etc/systemd/system:
+  gridflow-app.service
+  upbit-bot.service
+  orderlens-ops.service
+  gridflow-pg-backup.service
+  gridflow-pg-backup.timer
+  gridflow-health-alert.service
+  gridflow-health-alert.timer
+
+2. First Install Sequence
+
+Step 1. Place source tree
+
+- Required result:
+  code must end up at /home/ubuntu/upbit_bot
+- Command example:
+  unconfirmed
+- Why unconfirmed:
+  the inspected repository and live unit files prove the final path only; they do not prove whether source arrives via git clone, rsync, tar extraction, or another installer.
+
+Step 2. Prepare Python environment
+
+- Required result:
+  /home/ubuntu/upbit_bot/venv/bin/python3
+  /home/ubuntu/upbit_bot/venv/bin/pip
+- Command example:
+  unconfirmed
+- Why unconfirmed:
+  live files prove the venv location exists, but no inspected file records the exact creation command.
+
+Step 3. Install Python packages
+
+- Evidence:
+  requirements file path is /home/ubuntu/upbit_bot/requirements-web.txt
+  venv pip exists at /home/ubuntu/upbit_bot/venv/bin/pip
+- Command example:
+```bash
+/home/ubuntu/upbit_bot/venv/bin/pip install -r /home/ubuntu/upbit_bot/requirements-web.txt
+```
+
+Step 4. Place runtime config files
+
+- Required file locations:
+  /etc/gridflow/gridflow.env
+  /etc/gridflow/monitor_config.json
+  /etc/gridflow/monitor_auth.json
+- Evidence:
+  gridflow-app.service and upbit-bot.service use EnvironmentFile=/etc/gridflow/gridflow.env
+  orderlens-ops.service sets MONITOR_CONFIG_PATH=/etc/gridflow/monitor_config.json and MONITOR_AUTH_PATH=/etc/gridflow/monitor_auth.json
+  orderlens-ops.service ExecStartPre creates /etc/gridflow and the two json files with root:monitor ownership and mode 0660
+- Command examples:
+```bash
+sudo install -d -o root -g monitor -m 3770 /etc/gridflow
+sudo install -o root -g monitor -m 0660 /dev/null /etc/gridflow/monitor_config.json
+sudo install -o root -g monitor -m 0660 /dev/null /etc/gridflow/monitor_auth.json
+```
+- For /etc/gridflow/gridflow.env:
+  placement path is confirmed, but create/copy permission model is unconfirmed from the inspected files.
+- Minimum content contract:
+  see /home/ubuntu/upbit_bot/ENV_SCHEMA.txt
+
+Step 5. Prepare PostgreSQL
+
+- Required result:
+  PostgreSQL reachable on localhost:5432
+  database name upbit_bot
+  role/user name tradingbot
+- Evidence:
+  DB_URL target from live env points to postgresql://tradingbot@localhost:5432/upbit_bot
+  pg_hba.conf allows local host auth on 127.0.0.1/32 using md5
+  restore verify script uses createdb -O tradingbot for temporary DBs
+- Command examples:
+```bash
+psql -h 127.0.0.1 -U tradingbot -d upbit_bot -c 'SELECT 1;'
+sudo -u postgres createdb -O tradingbot upbit_bot
+```
+- Unconfirmed within inspected files:
+  exact role creation command for tradingbot
+  exact password setup command for tradingbot
+  schema bootstrap/migration command beyond app startup calling init_db()
+
+Step 6. Install systemd unit files
+
+- Confirmed live unit file paths:
+  /etc/systemd/system/gridflow-app.service
+  /etc/systemd/system/upbit-bot.service
+  /etc/systemd/system/orderlens-ops.service
+  /etc/systemd/system/gridflow-pg-backup.service
+  /etc/systemd/system/gridflow-pg-backup.timer
+  /etc/systemd/system/gridflow-health-alert.service
+  /etc/systemd/system/gridflow-health-alert.timer
+- Command example for placing app/ops units:
+  unconfirmed
+- Why unconfirmed:
+  the repository contains backup/alert unit templates under ops/, but it does not contain source templates for gridflow-app.service, upbit-bot.service, or orderlens-ops.service; only the already-installed /etc/systemd/system copies were inspectable.
+
+Step 7. Apply systemd changes
+
+- Evidence:
+  current units are enabled and active
+- Command examples:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable gridflow-app.service upbit-bot.service orderlens-ops.service
+sudo systemctl enable gridflow-pg-backup.timer gridflow-health-alert.timer
+sudo systemctl restart gridflow-app.service upbit-bot.service orderlens-ops.service
+sudo systemctl start gridflow-pg-backup.timer gridflow-health-alert.timer
+```
+
+Step 8. Install logrotate file
+
+- Evidence:
+  repository file: /home/ubuntu/upbit_bot/ops/gridflow.logrotate
+  live target file: /etc/logrotate.d/gridflow
+- Command example:
+```bash
+sudo cp /home/ubuntu/upbit_bot/ops/gridflow.logrotate /etc/logrotate.d/gridflow
+```
+
+Step 9. Install nginx site
+
+- Evidence:
+  live site file: /etc/nginx/sites-available/gridflow
+  live enabled link: /etc/nginx/sites-enabled/gridflow -> /etc/nginx/sites-available/gridflow
+  site proxies:
+  / -> http://127.0.0.1:8000
+  /monitor -> http://127.0.0.1:8010
+- Command example for creating site file:
+  unconfirmed
+- Why unconfirmed:
+  the repository does not contain the nginx site template; only the installed live file was inspectable.
+- Confirmed activation/reload commands:
+```bash
+sudo ln -s /etc/nginx/sites-available/gridflow /etc/nginx/sites-enabled/gridflow
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+3. Settings File Placement Summary
+
+- Source root:
+  /home/ubuntu/upbit_bot
+- Python venv:
+  /home/ubuntu/upbit_bot/venv
+- Python package list:
+  /home/ubuntu/upbit_bot/requirements-web.txt
+- Runtime env:
+  /etc/gridflow/gridflow.env
+- Monitor config:
+  /etc/gridflow/monitor_config.json
+- Monitor auth:
+  /etc/gridflow/monitor_auth.json
+- Systemd units:
+  /etc/systemd/system/*.service
+  /etc/systemd/system/*.timer
+- nginx site:
+  /etc/nginx/sites-available/gridflow
+  /etc/nginx/sites-enabled/gridflow
+- logrotate:
+  /etc/logrotate.d/gridflow
+
+4. Systemd Apply Commands
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable gridflow-app.service upbit-bot.service orderlens-ops.service
+sudo systemctl enable gridflow-pg-backup.timer gridflow-health-alert.timer
+sudo systemctl restart gridflow-app.service upbit-bot.service orderlens-ops.service
+sudo systemctl start gridflow-pg-backup.timer gridflow-health-alert.timer
+sudo systemctl is-enabled gridflow-app.service upbit-bot.service orderlens-ops.service gridflow-pg-backup.timer gridflow-health-alert.timer
+sudo systemctl is-active gridflow-app.service upbit-bot.service orderlens-ops.service nginx.service postgresql@16-main.service
+```
+
+5. Nginx Apply Commands
+
+```bash
+sudo ln -s /etc/nginx/sites-available/gridflow /etc/nginx/sites-enabled/gridflow
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+6. Smoke Check Commands Right After Install
+
+- Local app:
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/
+```
+  Expected from current running system: 200
+
+- Local monitor:
+```bash
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://127.0.0.1:8010/monitor
+```
+  Expected from current running system: 302 to /monitor/login
+
+- HTTPS app through nginx:
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://gridflow.co.kr/
+```
+  Expected from current running system: 200
+
+- HTTPS monitor through nginx:
+```bash
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://gridflow.co.kr/monitor
+```
+  Expected from current running system: 302 to /monitor/login
+
+- Service state:
+```bash
+sudo systemctl is-active gridflow-app.service upbit-bot.service orderlens-ops.service nginx.service postgresql@16-main.service
+```
+  Expected from current running system: all active
+
+7. First Logs / Status Commands To Check On Failure
+
+```bash
+sudo systemctl status gridflow-app.service --no-pager
+sudo systemctl status upbit-bot.service --no-pager
+sudo systemctl status orderlens-ops.service --no-pager
+sudo systemctl status nginx.service --no-pager
+sudo systemctl status postgresql@16-main.service --no-pager
+sudo journalctl -u gridflow-app.service -n 100 --no-pager
+sudo journalctl -u upbit-bot.service -n 100 --no-pager
+sudo journalctl -u orderlens-ops.service -n 100 --no-pager
+sudo tail -n 100 /home/ubuntu/upbit_bot/monitor_uvicorn.log
+sudo tail -n 100 /var/log/nginx/error.log
+sudo tail -n 50 /var/log/gridflow_backup.log
+sudo tail -n 50 /var/log/gridflow_restore_verify.log
+sudo tail -n 50 /var/log/gridflow_alert.log
+```
+
+8. Unconfirmed Items
+
+- Source acquisition command is unconfirmed. Current files prove the final deployed path only.
+- Virtualenv creation command is unconfirmed. Current files prove the final venv path only.
+- Exact command that writes /etc/gridflow/gridflow.env is unconfirmed. Path is confirmed, but owner/mode bootstrap command is not.
+- Exact PostgreSQL role creation/password command for tradingbot is unconfirmed.
+- Exact initial schema migration/bootstrap command is unconfirmed; current app startup runs init_db() on boot, but there is no separate inspected installer script.
+- Exact file-install command for /etc/systemd/system/gridflow-app.service, /etc/systemd/system/upbit-bot.service, and /etc/systemd/system/orderlens-ops.service is unconfirmed because no repo-side templates for those three units were found.
+- Exact file-install command for /etc/nginx/sites-available/gridflow is unconfirmed because no repo-side template was found.

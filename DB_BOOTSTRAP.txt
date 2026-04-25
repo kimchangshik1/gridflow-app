@@ -1,0 +1,92 @@
+DB_BOOTSTRAP
+Measured at: 2026-04-20 UTC
+Scope: temporary DB only; live DB untouched
+
+1. Temporary DB Used
+
+- Database name: upbit_bot_bootstrap_20260420_053740
+- Connected user: tradingbot
+
+2. Commands Executed
+
+- Temporary DB reset:
+```bash
+sudo -n -u postgres dropdb --if-exists upbit_bot_bootstrap_20260420_053740
+sudo -n -u postgres createdb -O tradingbot upbit_bot_bootstrap_20260420_053740
+```
+
+- Alembic install verification:
+```bash
+./venv/bin/pip show alembic
+```
+
+- Baseline apply command shape actually used:
+```bash
+./venv/bin/python -c "import os; os.environ['DB_URL']='postgresql://tradingbot:<DB_PASSWORD>@127.0.0.1:5432/upbit_bot_bootstrap_20260420_053740'; from alembic.config import main; import sys; sys.exit(main(argv=['-c','alembic.ini','upgrade','head']) or 0)"
+```
+
+- Post-run verification commands:
+```bash
+PGPASSWORD=<DB_PASSWORD> psql -h 127.0.0.1 -U tradingbot -d upbit_bot_bootstrap_20260420_053740 -F '|' -Atc "select count(*) from pg_tables where schemaname='public';"
+PGPASSWORD=<DB_PASSWORD> psql -h 127.0.0.1 -U tradingbot -d upbit_bot_bootstrap_20260420_053740 -F '|' -Atc "select count(*) from pg_tables where schemaname='public' and tablename <> 'alembic_version';"
+PGPASSWORD=<DB_PASSWORD> psql -h 127.0.0.1 -U tradingbot -d upbit_bot_bootstrap_20260420_053740 -F '|' -Atc "select tablename from pg_tables where schemaname='public' order by tablename;"
+PGPASSWORD=<DB_PASSWORD> psql -h 127.0.0.1 -U tradingbot -d upbit_bot_bootstrap_20260420_053740 -F '|' -Atc "select table_name,column_name from information_schema.columns where table_schema='public' and ((table_name='users' and column_name='login_fail_window_start') or (table_name='audit_logs' and column_name='user_id') or (table_name='state_transition_logs' and column_name='user_id')) order by table_name,column_name;"
+PGPASSWORD=<DB_PASSWORD> psql -h 127.0.0.1 -U tradingbot -d upbit_bot_bootstrap_20260420_053740 -F '|' -Atc "select version_num from alembic_version;"
+```
+
+3. Result
+
+- Status: success
+- Alembic revision applied: 20260420_01
+- public schema table count including alembic_version: 20
+- public schema application table count excluding alembic_version: 19
+
+4. Table Count Verification
+
+- Expected app tables: 19
+- Actual app tables: 19
+- Interpretation:
+  baseline migration reproduced the 19 live-schema application tables.
+  Alembic added its own metadata table alembic_version, so total public tables became 20.
+
+5. Key Column Verification
+
+- users.login_fail_window_start: present
+- audit_logs.user_id: present
+- state_transition_logs.user_id: present
+
+6. Seed Need First Pass
+
+- Migration alone recreates schema successfully.
+- Seed data is still needed for practical first-use administration:
+  users table needs at least one admin-capable path if a fresh server must use admin-only flows immediately.
+- No seed rows were inserted during this verification.
+
+7. Empty DB -> Migration -> App Start Path
+
+- First-pass verdict: partially viable
+- Proven in this turn:
+  empty temporary DB -> baseline migration -> 19-table schema reproduction works
+- Still not proven in this turn:
+  app service startup against the migrated empty DB was not executed
+- Based on prior schema inventory:
+  schema bootstrap is now viable
+  full production behavior on an empty DB still depends on seed/user bootstrap and on runtime paths that expect operational tables to remain empty but present
+
+8. Issues Hit During Verification
+
+- First failed execution path:
+  `python -m alembic` did not work in this environment
+- Root cause:
+  Alembic package was not installed in the project venv at first, and the installed package later had to be invoked through Python API with `os.environ["DB_URL"]` set inside the process to avoid the aborted `DB_URL=... command` pattern
+- Fix applied:
+  added `alembic` to `requirements-web.txt`
+  installed Alembic into the project venv
+  used Python API invocation for non-interactive baseline execution
+
+9. Remaining Risks
+
+- This turn proved migration bootstrap only, not application startup against the empty migrated DB.
+- ORM metadata still does not match the live baseline schema; future Alembic autogenerate use may drift unless handled carefully.
+- The migrated schema intentionally follows live DB behavior, so `state_transition_logs.planned_order_id` still has no FK to `planned_orders.id`.
+- Fresh-server usability still requires a separate admin/user bootstrap decision for the `users` table.

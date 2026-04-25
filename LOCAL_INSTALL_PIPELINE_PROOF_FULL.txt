@@ -1,0 +1,109 @@
+LOCAL_INSTALL_PIPELINE_PROOF_FULL
+
+Measured at: 2026-04-20 UTC
+Scope: full local non-live clean-install pipeline proof including backup/health-alert/logrotate assets
+Result: render/apply/permissions completed successfully
+Note: ops asset permission baseline was re-measured from live files and corrected to `root:root 0644`
+
+1. Input Files
+
+- /home/ubuntu/upbit_bot/ops/render_install_payload.py
+- /home/ubuntu/upbit_bot/ops/apply_install_payload.py
+- /home/ubuntu/upbit_bot/ops/apply_install_permissions.py
+- /home/ubuntu/upbit_bot/ops/install_permissions.json
+- /home/ubuntu/upbit_bot/ops/templates/install_values.rehearsal.json
+
+2. Render Root
+
+- /home/ubuntu/upbit_bot/_install_render_full_rehearsal
+
+3. Target Root
+
+- /tmp/gridflow_full_clean_rehearsal_root
+
+4. Executed Commands
+
+```bash
+./venv/bin/python ops/render_install_payload.py --values ops/templates/install_values.rehearsal.json --output-dir _install_render_full_rehearsal
+python3 ops/apply_install_payload.py --target-root / --dry-run
+python3 ops/apply_install_payload.py --source-root _install_render_full_rehearsal --target-root /tmp/gridflow_full_clean_rehearsal_root --dry-run
+python3 ops/apply_install_payload.py --source-root _install_render_full_rehearsal --target-root /tmp/gridflow_full_clean_rehearsal_root
+python3 ops/apply_install_permissions.py --target-root /tmp/gridflow_full_clean_rehearsal_root --dry-run
+sudo -n python3 ops/apply_install_permissions.py --target-root /tmp/gridflow_full_clean_rehearsal_root
+find /tmp/gridflow_full_clean_rehearsal_root -maxdepth 5 -type f | sort
+sudo -n python3 - <<'PY'
+from pathlib import Path
+import stat, pwd, grp
+paths = [
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-app.service',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/upbit-bot.service',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/orderlens-ops.service',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-pg-backup.service',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-pg-backup.timer',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-health-alert.service',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-health-alert.timer',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/nginx/sites-available/gridflow',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/logrotate.d/gridflow',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/gridflow/gridflow.env',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/gridflow/monitor_config.json',
+    '/tmp/gridflow_full_clean_rehearsal_root/etc/gridflow/monitor_auth.json',
+]
+for p in paths:
+    st = Path(p).stat()
+    print(f"{p}|{pwd.getpwuid(st.st_uid).pw_name}|{grp.getgrgid(st.st_gid).gr_name}|{format(stat.S_IMODE(st.st_mode), '04o')}")
+PY
+```
+
+5. Generated File List (12)
+
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-app.service
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/upbit-bot.service
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/orderlens-ops.service
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-pg-backup.service
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-pg-backup.timer
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-health-alert.service
+- /tmp/gridflow_full_clean_rehearsal_root/etc/systemd/system/gridflow-health-alert.timer
+- /tmp/gridflow_full_clean_rehearsal_root/etc/nginx/sites-available/gridflow
+- /tmp/gridflow_full_clean_rehearsal_root/etc/logrotate.d/gridflow
+- /tmp/gridflow_full_clean_rehearsal_root/etc/gridflow/gridflow.env
+- /tmp/gridflow_full_clean_rehearsal_root/etc/gridflow/monitor_config.json
+- /tmp/gridflow_full_clean_rehearsal_root/etc/gridflow/monitor_auth.json
+
+6. Permission Verification Result
+
+Measured after `permissions actual`:
+- gridflow-app.service -> ubuntu:ubuntu 0644
+- upbit-bot.service -> ubuntu:ubuntu 0644
+- orderlens-ops.service -> ubuntu:ubuntu 0644
+- gridflow-pg-backup.service -> root:root 0644
+- gridflow-pg-backup.timer -> root:root 0644
+- gridflow-health-alert.service -> root:root 0644
+- gridflow-health-alert.timer -> root:root 0644
+- nginx/sites-available/gridflow -> ubuntu:ubuntu 0644
+- logrotate.d/gridflow -> root:root 0644
+- gridflow.env -> root:root 0600
+- monitor_config.json -> root:monitor 0660
+- monitor_auth.json -> root:monitor 0660
+
+Judgment:
+- file creation/render/apply path succeeded
+- owner/group/mode application reproduced the manifest on the `/tmp/gridflow_full_clean_rehearsal_root` target
+- ops asset permissions now match live measured values:
+  - gridflow-pg-backup.service -> root:root 0644
+  - gridflow-pg-backup.timer -> root:root 0644
+  - gridflow-health-alert.service -> root:root 0644
+  - gridflow-health-alert.timer -> root:root 0644
+  - logrotate.d/gridflow -> root:root 0644
+
+7. Live Unmodified Confirmation
+
+- render output used `/home/ubuntu/upbit_bot/_install_render_full_rehearsal`
+- target root used `/tmp/gridflow_full_clean_rehearsal_root`
+- live root `/` apply attempt was blocked without `--allow-live-root`
+- no write was performed under `/etc`, `/etc/systemd/system`, `/etc/nginx`, or `/etc/logrotate.d`
+
+8. Remaining Blockers
+
+- this proof stops at rendered file deployment and permission application
+- no `systemctl daemon-reload`, service start/restart, `nginx reload`, or `logrotate` execution was performed
+- directory owner/group/mode policy is still separate from file policy

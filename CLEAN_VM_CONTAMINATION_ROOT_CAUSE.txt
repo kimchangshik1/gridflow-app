@@ -1,0 +1,60 @@
+Clean VM Contamination Root Cause
+
+1. Current Host Identity
+
+- instance-id: `i-0205cf57f9b8491bf`
+- ami-id: `ami-0f65fc8c24ec8d2a1`
+- public-ipv4: `54.250.241.38`
+- local-ipv4: `172.31.35.64`
+- hostname: `ip-172-31-35-64`
+- uptime: `up 1 week, 4 hours, 6 minutes`
+- boot time: `2026-04-13 04:27`
+- `/etc/machine-id`: `ec2a6a2070897dbe49fc543dfda159e6`
+
+2. Same Host Or Not
+
+- verdict: `동일 호스트로 판정`
+- basis:
+  - hostname matches the previously measured production-like host: `ip-172-31-35-64`
+  - local IP matches the previously measured host: `172.31.35.64`
+  - public IP matches the previously measured host: `54.250.241.38`
+  - instance-id matches the previously measured host: `i-0205cf57f9b8491bf`
+  - ami-id also matches the previously measured host baseline
+
+3. Installation Trace Status
+
+- `/etc/gridflow`
+  - present
+  - mtime: `2026-04-18 09:45:24 UTC`
+- `/etc/systemd/system/gridflow-app.service`
+  - present
+  - mtime: `2026-04-18 09:35:50 UTC`
+- `/etc/systemd/system/upbit-bot.service`
+  - present
+  - mtime: `2026-04-18 09:35:50 UTC`
+- `/etc/systemd/system/orderlens-ops.service`
+  - present
+  - mtime: `2026-04-18 09:45:06 UTC`
+- `/etc/nginx/sites-available/gridflow`
+  - present
+  - mtime: `2026-04-18 09:20:34 UTC`
+
+4. Most Likely Root Cause
+
+- `같은 기존 운영/작업 호스트에 다시 접속했음`
+
+5. Evidence For That Cause
+
+- instance-id, hostname, public/private IP all match the already known non-clean host values.
+- boot time is `2026-04-13`, while GridFlow install traces were written later on `2026-04-18`.
+- cloud-init user-data and cloud-config files exist but are empty in readable output, so there is no positive evidence that first-boot automation installed GridFlow on this instance.
+- the trace mtimes are consistent with post-boot installation work on the existing host, not with a fresh clean VM bootstrapped automatically at launch.
+
+6. Next Correct Action
+
+- Create or connect to a truly different EC2 instance, then repeat the clean-state check before any GridFlow bundle/repo transfer or first-execute proof attempt.
+
+7. Stop Point
+
+- Investigation only.
+- No delete, install, service change, or config change was performed.

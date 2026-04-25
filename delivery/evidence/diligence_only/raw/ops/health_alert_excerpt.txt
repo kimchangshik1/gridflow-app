@@ -1,0 +1,17 @@
+health alert snapshot
+captured_at: 2026-04-20 UTC
+source_files:
+- /var/log/gridflow_alert.log.1
+- /var/lib/gridflow/health_alert.last
+- systemd journal: gridflow-health-alert.service
+
+alert dispatch evidence
+- 2026-04-18T09:09:57Z GridFlow health alert on [redacted-host]: service upbit-bot.service active=inactive substate=dead
+
+current timer/state evidence
+- 2026-04-20T07:47:29Z health_alert.last => OK 2026-04-20T07:47:29Z
+- 2026-04-20 07:47:29 UTC systemd finished gridflow-health-alert.service successfully
+
+duplicate suppression
+- direct suppression line not found in current raw files
+- keep as limited; prior mocked suppression proof remains document-only

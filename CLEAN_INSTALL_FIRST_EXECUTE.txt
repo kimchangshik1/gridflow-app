@@ -1,0 +1,45 @@
+Script path
+- `ops/clean_install_first_execute.sh`
+
+Dry-run example
+```bash
+bash ops/clean_install_first_execute.sh \
+  --source-dir /home/ubuntu/upbit_bot \
+  --target-app-dir /tmp/gridflow_first_execute_test/app \
+  --values /tmp/gridflow_first_execute_test/install_values.first_execute.json \
+  --target-root /tmp/gridflow_first_execute_root
+```
+
+Execute example
+```bash
+bash ops/clean_install_first_execute.sh \
+  --source-dir /home/ubuntu/upbit_bot \
+  --target-app-dir /tmp/gridflow_first_execute_test/app \
+  --values /tmp/gridflow_first_execute_test/install_values.first_execute.json \
+  --target-root /tmp/gridflow_first_execute_root \
+  --execute
+```
+
+Input arguments
+- `--source-dir`: source tree root. Default is current repo.
+- `--target-app-dir`: deployed app root. Required.
+- `--values`: install values JSON. Required.
+- `--target-root`: rendered payload apply root. Required.
+- `--allow-live-root`: only use when `--target-root /` is intentional.
+- `--execute`: run actual deploy/runtime/render/apply/permissions steps.
+
+Execution order
+1. `deploy_source_tree`
+2. `prepare_app_runtime`
+3. `pre_install_preflight`
+4. `render_install_payload`
+5. `apply_install_payload`
+6. `apply_install_permissions`
+7. `post_install_activate.sh`
+8. `post_install_smoke_check.sh`
+
+Notes
+- Default mode is dry-run.
+- In dry-run mode, steps that require materialized target artifacts are reported as planned-only PASS.
+- `post_install_activate.sh` and `post_install_smoke_check.sh` are always called in dry-run mode in this orchestrator.
+- The script stops on the first failed step and returns non-zero.

@@ -1,0 +1,6 @@
+{
+  "exchange": "{{MONITOR_EXCHANGE}}",
+  "api_key": "{{MONITOR_API_KEY}}",
+  "api_secret": "{{MONITOR_API_SECRET}}",
+  "tier": "{{MONITOR_TIER}}"
+}

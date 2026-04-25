@@ -1,0 +1,10 @@
+backup dump presence snapshot
+captured_at: 2026-04-20 UTC
+source_file: /var/backups/gridflow/upbit_bot_20260420_032935.dump
+source_log: /var/log/gridflow_backup.log
+
+2026-04-20 recheck: success
+- /var/backups/gridflow/upbit_bot_20260420_032935.dump
+- size: 2.4M
+- 2026-04-20T03:29:35Z START backup target=/var/backups/gridflow/upbit_bot_20260420_032935.dump
+- 2026-04-20T03:29:36Z OK backup file=/var/backups/gridflow/upbit_bot_20260420_032935.dump

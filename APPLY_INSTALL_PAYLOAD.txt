@@ -1,0 +1,31 @@
+APPLY_INSTALL_PAYLOAD
+
+Purpose
+- Copy rendered payload files from `_install_render/` into a target root.
+- This script does not run `systemctl daemon-reload`, `systemctl restart`, or `nginx reload`.
+
+Usage
+```bash
+python3 ops/apply_install_payload.py --target-root /tmp/gridflow_apply_test --dry-run
+python3 ops/apply_install_payload.py --target-root /tmp/gridflow_apply_test
+python3 ops/apply_install_payload.py --target-root / --allow-live-root --dry-run
+```
+
+Arguments
+- `--source-root`: rendered payload root. Default is `_install_render/`
+- `--target-root`: required destination root
+- `--dry-run`: print planned backup/copy operations without writing files
+- `--allow-live-root`: required if `--target-root /` is used
+
+Safety
+- Applying to `/` is blocked unless `--allow-live-root` is passed.
+- Existing target files are backed up before overwrite as `.bak_YYYYmmdd_HHMMSS`
+
+Example Output Shape
+- `<target-root>/etc/systemd/system/gridflow-app.service`
+- `<target-root>/etc/systemd/system/upbit-bot.service`
+- `<target-root>/etc/systemd/system/orderlens-ops.service`
+- `<target-root>/etc/nginx/sites-available/gridflow`
+- `<target-root>/etc/gridflow/gridflow.env`
+- `<target-root>/etc/gridflow/monitor_config.json`
+- `<target-root>/etc/gridflow/monitor_auth.json`

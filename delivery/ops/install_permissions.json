@@ -1,0 +1,74 @@
+[
+  {
+    "path": "etc/systemd/system/gridflow-app.service",
+    "owner": "ubuntu",
+    "group": "ubuntu",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/systemd/system/upbit-bot.service",
+    "owner": "ubuntu",
+    "group": "ubuntu",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/systemd/system/orderlens-ops.service",
+    "owner": "ubuntu",
+    "group": "ubuntu",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/systemd/system/gridflow-pg-backup.service",
+    "owner": "root",
+    "group": "root",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/systemd/system/gridflow-pg-backup.timer",
+    "owner": "root",
+    "group": "root",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/systemd/system/gridflow-health-alert.service",
+    "owner": "root",
+    "group": "root",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/systemd/system/gridflow-health-alert.timer",
+    "owner": "root",
+    "group": "root",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/nginx/sites-available/gridflow",
+    "owner": "ubuntu",
+    "group": "ubuntu",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/logrotate.d/gridflow",
+    "owner": "root",
+    "group": "root",
+    "mode": "0644"
+  },
+  {
+    "path": "etc/gridflow/gridflow.env",
+    "owner": "root",
+    "group": "root",
+    "mode": "0600"
+  },
+  {
+    "path": "etc/gridflow/monitor_config.json",
+    "owner": "root",
+    "group": "monitor",
+    "mode": "0660"
+  },
+  {
+    "path": "etc/gridflow/monitor_auth.json",
+    "owner": "root",
+    "group": "monitor",
+    "mode": "0660"
+  }
+]

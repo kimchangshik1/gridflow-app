@@ -1,0 +1,33 @@
+health alert suppression check
+captured_at: 2026-04-20 UTC
+
+checked source
+- /var/log/gridflow_alert.log
+- /var/log/gridflow_alert.log.1
+- /var/lib/gridflow/health_alert*
+- systemd journal: gridflow-health-alert.service
+- D_OPERATIONS_RUNBOOK.txt
+
+relevant line/state
+- /var/log/gridflow_alert.log
+  - current file has no alert lines in the recent tail window
+- /var/log/gridflow_alert.log.1
+  - 2026-04-17T14:34:57Z GridFlow health alert ... upbit-bot.service active=activating substate=auto-restart service upbit-web.service active=activating substate=auto-restart
+  - 2026-04-17T15:07:54Z GridFlow health alert ... upbit-web.service active=inactive substate=dead
+  - 2026-04-18T09:09:57Z GridFlow health alert ... upbit-bot.service active=inactive substate=dead
+- /var/lib/gridflow
+  - file present: health_alert.last
+  - file absent in current listing: health_alert.push.last
+- systemd journal
+  - repeated successful timer runs observed at 2026-04-20 07:57:32 UTC through 08:44:12 UTC
+  - journal shows service start/finish only, not duplicate suppression decisions
+- runbook
+  - documents duplicate suppression rule and cooldown, but this is policy text rather than raw runtime proof
+
+suppression 판정
+- limited
+
+reason
+- current raw files show alert dispatch lines and current timer success, but no direct runtime line saying a repeated FAIL was suppressed
+- current raw file listing does not expose `health_alert.push.last`, so prior document-level suppression proof cannot be re-established from file state alone in this check
+- systemd journal for the service does not include webhook/suppression decision detail in the checked window

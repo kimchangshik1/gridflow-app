@@ -1,0 +1,12 @@
+{
+  "base_url": "https://gridflow.co.kr/",
+  "output_dir": "/home/ubuntu/upbit_bot/evidence/raw/screenshots/auth",
+  "started_at": "2026-04-20T07:17:10.067Z",
+  "shots": [
+    "logout_overlay_return.png",
+    "refresh_session_result.png"
+  ],
+  "blocker": null,
+  "refresh_result": "session persists",
+  "finished_at": "2026-04-20T07:17:22.094Z"
+}

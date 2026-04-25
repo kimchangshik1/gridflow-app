@@ -1,0 +1,104 @@
+AWS_CLEAN_VM_LAUNCH_CARD
+
+Purpose
+- AWS Console에서 clean VM 1대를 수동 생성하기 위한 최종 입력 카드
+
+**확정 값**
+
+| 항목 | 값 |
+| --- | --- |
+| Region | `ap-northeast-1` |
+| Availability Zone | `ap-northeast-1a` |
+| AMI ID | `ami-0f65fc8c24ec8d2a1` |
+| Instance Type | `t3.medium` |
+| VPC ID | `vpc-08f8d09589d3e57eb` |
+| Subnet ID | `subnet-004b669deaaaa3143` |
+| Security Group ID | `sg-0dc750f2c81872b0e` |
+| Security Group Name | `launch-wizard-3` |
+| Public IP | `Enabled` |
+| Root Disk | `30 GiB 권장` |
+| OS family expectation | `Ubuntu 24.04 LTS` |
+
+**결정 필요**
+
+| 항목 | 상태 |
+| --- | --- |
+| 기존 SG 재사용 vs 새 SG 생성 | `결정 필요` |
+| same AZ 강제 여부 | `결정 필요` |
+| AWS key pair 이름 | `결정 필요` |
+
+**권장 결정안**
+
+- 권장:
+  - `새 Security Group 생성`
+  - `Region은 ap-northeast-1 고정, AZ는 ap-northeast-1a 사용`
+  - `새 clean-VM 전용 key pair 사용`
+- 근거:
+  - 기존 운영 SG를 그대로 재사용하면 clean proof 범위 밖의 포트/접근 규칙이 섞일 수 있음
+  - same AZ는 현재 호스트와 가장 가까운 parity를 줌
+  - key pair를 분리하면 clean VM 접근 이력이 명확해짐
+- 대안:
+  - parity가 최우선이면 기존 SG `launch-wizard-3` 재사용 가능
+  - AZ는 같은 region 내 다른 AZ도 가능하지만, 현재 호스트와 최대한 같게 만들려면 `ap-northeast-1a`가 우선
+
+**최소 보안 규칙**
+
+- inbound:
+  - `22/tcp` from operator public IP only
+  - `80/tcp` only if nginx/HTTP proof에 필요
+  - `443/tcp` only if TLS/HTTPS proof에 필요
+- outbound:
+  - default allow 또는 패키지 설치/DB 접속에 필요한 최소 범위
+
+**AWS Console Launch 순서**
+
+1. AWS Console에서 Region을 `ap-northeast-1`로 선택
+2. `EC2` -> `Instances` -> `Launch instances`
+3. `Name and tags`
+   - 예: `gridflow-clean-proof-01`
+4. `Application and OS Images (AMI)`
+   - `AMI ID = ami-0f65fc8c24ec8d2a1`
+5. `Instance type`
+   - `t3.medium`
+6. `Key pair (login)`
+   - 준비된 key pair 선택
+7. `Network settings`
+   - `VPC = vpc-08f8d09589d3e57eb`
+   - `Subnet = subnet-004b669deaaaa3143`
+   - `Auto-assign public IP = Enable`
+   - Security Group:
+     - 권장: 새 SG 생성 후 최소 inbound만 추가
+     - 대안: `sg-0dc750f2c81872b0e (launch-wizard-3)` 선택
+8. `Configure storage`
+   - root disk `30 GiB`
+9. 내용 재검토 후 `Launch instance`
+
+**생성 직후 Clean State 확인**
+
+```bash
+test ! -e /etc/gridflow
+test ! -e /etc/systemd/system/gridflow-app.service
+test ! -e /etc/systemd/system/upbit-bot.service
+test ! -e /etc/systemd/system/orderlens-ops.service
+test ! -e /etc/nginx/sites-available/gridflow
+test ! -e /opt/gridflow/app
+```
+
+**생성 직후 최소 작업**
+
+1. SSH로 접속
+2. GridFlow repo 또는 transfer bundle 반입
+3. bundle이면 unpack
+4. `ops/templates/install_values.example.json` 기준으로 `install_values.live.json` 준비 시작
+5. values 파일 준비 전까지 정지
+
+**다음 실행 카드**
+
+- clean state 통과 후 참조 문서:
+  - `CLEAN_VM_EXECUTION_PACKET.txt`
+  - `CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt`
+
+**현재 호스트 주의**
+
+- 현재 호스트는 clean VM이 아님
+- 이 launch card는 AWS Console 수동 생성용이며 현재 호스트에서 execute proof를 수행하라는 의미가 아님

@@ -1,0 +1,73 @@
+MAJOR2_DRIFT_AUDIT
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Scope: final drift audit for the clean-VM handoff path only
+
+1. Files Audited
+
+- ops/templates/install_values.example.json
+- ops/run_clean_vm_live_install.sh
+- ops/capture_clean_vm_first_execute.sh
+- ops/prepare_clean_vm_db.sh
+- ops/clean_install_first_execute.sh
+- ops/post_install_activate.sh
+- ops/post_install_smoke_check.sh
+- CLEAN_VM_LIVE_INSTALL.txt
+- CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt
+- CLEAN_VM_EXECUTION_PACKET.txt
+
+2. Mismatch Result
+
+- mismatch found: no
+
+3. Audit Notes
+
+- values key names are aligned between:
+  - `ops/templates/install_values.example.json`
+  - `ops/run_clean_vm_live_install.sh` via `DB_URL`
+  - `ops/clean_install_first_execute.sh` via shared values JSON input
+  - `CLEAN_VM_EXECUTION_PACKET.txt` required/optional key lists
+
+- required wrapper arguments are aligned:
+  - `ops/run_clean_vm_live_install.sh`
+    - required: `--values`, `--target-app-dir`
+    - optional: `--source-dir`, `--target-root`, `--allow-live-root`, `--allow-non-clean-host`, `--execute`
+  - `ops/capture_clean_vm_first_execute.sh`
+    - required: `--values`, `--target-app-dir`, `--evidence-dir`
+    - optional: `--source-dir`, `--target-root`, `--allow-live-root`, `--allow-non-clean-host`, `--execute`
+  - corresponding docs match those interfaces
+
+- execution order is aligned:
+  - `run_clean_vm_live_install.sh`
+    1. `clean_install_first_execute.sh`
+    2. `prepare_clean_vm_db.sh`
+    3. `post_install_activate.sh`
+    4. `post_install_smoke_check.sh`
+  - `CLEAN_VM_LIVE_INSTALL.txt` documents the same order
+  - `capture_clean_vm_first_execute.sh` correctly wraps `run_clean_vm_live_install.sh` first, then evidence collection
+
+- evidence file list is aligned:
+  - `run_clean_vm_live_install.log`
+  - `systemd_status.txt`
+  - `http_checks.txt`
+  - `nginx_test.txt`
+  - `file_inventory.txt`
+  - `CLEAN_VM_FIRST_EXECUTE_EVIDENCE.txt`
+  - documented consistently in `CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt` and `CLEAN_VM_EXECUTION_PACKET.txt`
+
+- clean VM guard behavior is aligned:
+  - dry-run allowed
+  - `--execute` blocked on non-clean hosts by default
+  - `/` still requires `--allow-live-root`
+  - `--allow-non-clean-host` bypasses only the clean-VM guard
+  - documented consistently in `CLEAN_VM_LIVE_INSTALL.txt` and `CLEAN_VM_FIRST_EXECUTE_EVIDENCE_RUNBOOK.txt`
+
+4. Modified Files
+
+- none
+
+5. Handoff Verdict
+
+- clean VM handoff: yes
+- first-pass judgment:
+  the current clean-VM handoff packet is internally consistent and can be handed to the final clean-VM operator without further document/script sync work on this host

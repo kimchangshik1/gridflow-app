@@ -1,163 +1,273 @@
 GRIDFLOW RELEASE QUALITY GATES
 
-1. 문서 목적
+기준 시각
+- 갱신 시각: 2026-04-25 04:30:23 UTC
+- 이번 갱신 범위: recent monitor authenticated runtime evidence를 반영해 ops/evidence HOLD 문구를 한 번 더 축소
+- 원칙:
+  - PASS는 현재 시점 코드, 문서, 증거, fresh test run으로 닫힌 축에만 쓴다.
+  - evidence와 integration test는 같은 뜻으로 취급하지 않는다.
+  - buyer-facing으로 설명이 모호하면 PASS 대신 HOLD로 남긴다.
 
-이 문서는 GridFlow를 외부 공개 또는 실납품하기 전에 내부에서 반드시 확인할 최소 통과 기준을 고정한다.
-고객에게 제공하는 판매 문서가 아니다.
-출시 가능 여부를 판단하기 위한 내부 품질 게이트 문서다.
+최종 판정
+- 전체 release gate: `HOLD`
+- 이유:
+  - fresh integration suite는 현재 범위에서 `PASS`다.
+  - buyer-facing 문서 9종은 현재 기준으로 서로 충돌 없이 정리돼 `PASS`다.
+  - 그러나 ops, security, evidence 축에는 외부 설명 기준으로 아직 남겨야 할 `HOLD`가 있다.
+  - recent evidence로 `DRY RUN` 일반 로그인 배지, health alert duplicate suppression, monitor buyer-facing UI evidence, controlled local runtime 기준 monitor authenticated runtime proof는 닫혔다.
+  - 남은 핵심 HOLD는 controlled local runtime proof를 이미 가진 monitor 축에서 deployed live operator provenance not yet captured, session durability / multi-instance coherence / tier proof not claimed, Rebalancing broader-path evidence, 그리고 runtime safeguard와 buyer-facing backend contract 사이의 경계다.
 
+최근 evidence 재판정
 
-2. 핵심 플로우 게이트
+closed by recent evidence
+- `DRY RUN` 일반 로그인 배지 evidence
+  - `AUTH_MODE_EVIDENCE.md`
+  - `evidence/raw/auth/dry_run_mode_badge.png`
+  - `evidence/raw/auth/dry_run_mode_context.png`
+  - `evidence/raw/auth/dry_run_mode_auth_me.json`
+  - 일반 로그인, `is_guest=false`, `is_dry_run=true` safe capture가 확보됐다.
+  - provenance는 local synthetic safe capture라는 note를 계속 남긴다.
+- health alert duplicate suppression buyer-facing direct proof
+  - `evidence/raw/ops/health_alert_duplicate_suppression.txt`
+  - `evidence/raw/ops/health_alert_duplicate_context.txt`
+  - repeated unit run 사이에서 동일 alert line이 반복되지 않고, problem set 변경 시에만 다음 alert line이 생기는 direct raw가 확보됐다.
+- monitor buyer-facing UI evidence
+  - `evidence/raw/monitor/monitor_login_entry.png`
+  - `evidence/raw/monitor/monitor_postlogin_overview.png`
+  - `evidence/raw/monitor/monitor_orders_activity_filter.png`
+  - `evidence/raw/monitor/monitor_authenticated_login_flow.txt`
+  - `evidence/raw/monitor/monitor_auth_status.json`
+  - login entry, post-login UI, orders/activity/filter safe capture, authenticated login-flow raw가 현재 기준으로 함께 확보됐다.
+- monitor authenticated runtime proof
+  - `evidence/raw/monitor/monitor_authenticated_login_flow.txt`
+  - `evidence/raw/monitor/monitor_authenticated_home_runtime.png`
+  - `evidence/raw/monitor/monitor_authenticated_orders_activity_runtime.png`
+  - controlled local runtime에서 login success, cookie 발급, `/monitor`, `/monitor/orders`, `/monitor/activity` authenticated 200이 확보됐다.
+  - 더 정확한 현재 표현은 `authenticated runtime proof exists in controlled local runtime`이다.
 
-로그인:
-- 정상 계정으로 로그인할 수 있어야 한다.
-- 로그인 실패 시 원인이 화면 또는 로그에서 추적 가능해야 한다.
+softened but still HOLD
+- monitor deployed provenance / session durability / multi-instance / tier claim boundary
+  - authenticated runtime proof exists in controlled local runtime.
+  - 다만 deployed live operator provenance not yet captured, restart 후 session durability not proven, multi-instance coherence not proven, tier proof not yet captured 상태는 여전히 claim 범위 밖이다.
+- runtime emergency stop narrative vs backend contract gap
+  - `evidence/raw/ops/control_path_alignment_note.md`
+  - verified backend control path와 runtime safeguard boundary를 분리 설명할 수 있게 됐고, 현재 상태는 “혼선 큼”보다 `boundary disclosed but still limited`가 정확하다.
+  - dedicated backend emergency release endpoint 부재와 runtime safeguard != backend contract 경계는 계속 남는다.
 
-API 키 저장/반영:
-- 사용자가 입력한 API 키가 저장되어야 한다.
-- 저장된 키가 실제 런타임 설정에 반영되어야 한다.
-- 키 저장 후 서비스 재시작 또는 재로그인 기준 동작이 문서와 일치해야 한다.
+unchanged HOLD
+- Rebalancing `SELL`/`BOTH`
+- Rebalancing fill-complete
+- portfolio final reconciliation
+- Rebalancing known limitation
+- monitor memory session / multi-instance coherence limitation
 
-GUEST / DRY RUN / LIVE 구분:
-- GUEST 사용자는 실거래 기능에 진입할 수 없어야 한다.
-- DRY RUN은 실제 주문을 내지 않아야 한다.
-- LIVE는 사용자별 저장 키로만 실거래해야 한다.
-- 화면, 로그, DB 상태에서 현재 모드가 혼동되지 않아야 한다.
+1. 확인한 입력 문서/증거 목록
 
-수동 주문 진입:
-- 수동 주문 화면 또는 API 진입 경로가 정상 동작해야 한다.
-- 주문 전 필수 입력값 검증이 동작해야 한다.
-- 실패 시 silent failure 없이 실패 사유가 남아야 한다.
+기존 gate 문서
+- `/home/ubuntu/upbit_bot/GRIDFLOW_RELEASE_QUALITY_GATES.txt`
 
-Grid / DCA / Rebalancing 기본 동작:
-- 각 전략은 생성, 조회, 실행 상태 확인이 가능해야 한다.
-- 기본 설정값으로 최소 1회 정상 실행 경로가 검증되어야 한다.
-- 비정상 조건에서는 주문이 중단되고 원인이 기록되어야 한다.
+buyer-facing 문서 9종
+- `/home/ubuntu/upbit_bot/README.md`
+- `/home/ubuntu/upbit_bot/ARCHITECTURE.md`
+- `/home/ubuntu/upbit_bot/DEPLOYMENT.md`
+- `/home/ubuntu/upbit_bot/OPERATIONS.md`
+- `/home/ubuntu/upbit_bot/SECURITY.md`
+- `/home/ubuntu/upbit_bot/API.md`
+- `/home/ubuntu/upbit_bot/CHANGELOG.md`
+- `/home/ubuntu/upbit_bot/KNOWN_LIMITATIONS.md`
+- `/home/ubuntu/upbit_bot/SUPPORT_SCOPE.md`
 
+내부/근거 문서
+- `/home/ubuntu/upbit_bot/GRIDFLOW_RELEASE_EVIDENCE.txt`
+- `/home/ubuntu/upbit_bot/AUTH_MODE_EVIDENCE.md`
+- `/home/ubuntu/upbit_bot/MANUAL_ORDER_EVIDENCE.md`
+- `/home/ubuntu/upbit_bot/STRATEGY_EVIDENCE.md`
+- `/home/ubuntu/upbit_bot/OPERATIONS_EVIDENCE.md`
+- `/home/ubuntu/upbit_bot/GRIDFLOW_PRIVATE_INSTALL_CHECKLIST.txt`
+- `/home/ubuntu/upbit_bot/GRIDFLOW_PRIVATE_HANDOFF_RUNBOOK.txt`
+- `/home/ubuntu/upbit_bot/GRIDFLOW_PRIVATE_DEPLOYMENT_SCOPE.txt`
+- `/home/ubuntu/upbit_bot/MONITOR_AUTH_BOUNDARY.md`
+- `/home/ubuntu/upbit_bot/MONITOR_RUN_GUIDE.txt`
 
-3. 런타임 안정성 게이트
+자동 검증 근거
+- `/home/ubuntu/upbit_bot/tests/integration/conftest.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_auth_flow.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_mode_and_api_keys.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_manual_orders_upbit.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_manual_orders_bithumb.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_grid_cycle.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_dca_cycle.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_emergency_stop_release.py`
+- `/home/ubuntu/upbit_bot/tests/integration/test_rebalancing_cycle.py`
 
-반복 에러/경고 허용 기준:
-- 동일 에러가 반복 발생하면 HOLD 이상으로 판정한다.
-- 운영자가 조치하지 않아도 누적되는 경고는 허용하지 않는다.
-- 외부 공개 전에는 알려진 반복 에러의 원인과 조치 방안이 기록되어야 한다.
+2. fresh integration run 결과
 
-60초 주기 잡음 로그 허용 여부:
-- 60초 주기 작업 로그는 정상 상태 확인에 필요한 수준만 허용한다.
-- 매 주기마다 의미 없는 경고, 예외, 스택트레이스가 남으면 HOLD다.
-- 로그가 정상 운영 판단을 방해하면 외부 판매 금지다.
+실행 명령
+- `GRIDFLOW_TEST_DB_URL="$(sudo -n sed -n 's/^DB_URL=//p' /etc/gridflow/gridflow.env)" ./venv/bin/python -m pytest -q tests/integration`
 
-silent failure 금지:
-- 주문, 전략 실행, API 키 반영, 백업, 알림 실패는 조용히 실패하면 안 된다.
-- 실패는 화면, 로그, 알림, DB 상태 중 최소 하나에서 확인 가능해야 한다.
-- 실패 원인을 추적할 수 없는 기능은 PASS 처리하지 않는다.
+실행 결과
+- `13 passed in 22.82s`
 
+해석
+- tests 축의 `PASS` 근거는 이번 fresh run이다.
+- 이번 fresh run은 auth, mode, API key, manual orders, Grid, DCA, pause/resume control path, Rebalancing `BUY_ONLY` 1 cycle 범위를 현재 시점에서 다시 통과시켰다.
+- 이 결과는 fill-complete, Rebalancing `SELL`/`BOTH`, final portfolio reconciliation까지 자동 검증됐다는 뜻은 아니다.
 
-4. 운영 게이트
+3. 축별 최종 판정
 
-백업:
-- 운영 DB 백업 절차가 존재해야 한다.
-- 백업 파일 생성 위치와 보관 기준이 확인되어야 한다.
-- 백업 실패 시 운영자가 알 수 있어야 한다.
+runtime
+- 판정: `PASS`
+- PASS 근거:
+  - manual live order 구조가 문서, 코드, integration test에서 일관되게 `request -> planned_orders 생성 -> gateway submit -> SUBMITTED/log`로 정리된다.
+  - Grid와 DCA는 현재 buyer-facing 기준으로 `1 cycle execution path verified`라고 설명할 수 있고, 이 표현이 code path와 test scope와 맞다.
+  - Rebalancing은 trigger-reading `run_once()` path와 `rebalance-now` force path를 분리해서 설명하고 있으며, 현재 검증 범위도 그에 맞춰 `BUY_ONLY` 1 cycle로 좁혀져 있다.
+- 제한 메모:
+  - runtime `PASS`는 현재 문서화된 baseline에 대한 판정이다.
+  - Rebalancing `SELL`/`BOTH`, fill-complete, final portfolio reconciliation까지 runtime `PASS` 범위로 올리는 것은 과장이다.
 
-복구 검증:
-- 백업 파일로 복구 검증을 수행할 수 있어야 한다.
-- 복구 검증 결과가 기록되어야 한다.
-- 복구가 검증되지 않은 백업은 PASS 근거로 사용할 수 없다.
+ops
+- 판정: `HOLD`
+- PASS 근거:
+  - buyer-facing 문서와 내부 runbook 기준으로 backup, restore verify, health alert, monitor, 운영 점검 절차를 설명할 수 있다.
+  - emergency control은 전용 backend release endpoint가 아니라 현재 backend 기준 Grid/DCA pause/resume fan-out 대응 구조라고 정확히 정리돼 있다.
+- HOLD 근거:
+  - health alert duplicate suppression direct raw는 최근 evidence로 닫혔다. 현재 남은 alert evidence gap은 recipient-side delivery proof 같은 optional 두께 보강이다.
+  - monitor buyer-facing UI와 controlled local runtime 기준 authenticated runtime proof는 확보됐다.
+  - 현재 monitor 쪽 남은 HOLD는 controlled local runtime에서 authenticated runtime을 이미 확인한 상태에서, deployed live operator provenance not yet captured, restart 후 session durability not proven, multi-instance coherence not proven, tier proof not yet captured라는 claim boundary다.
+  - runtime emergency stop narrative는 alignment note로 boundary가 공개됐지만, buyer-facing backend contract는 여전히 Grid/DCA pause/resume 대응 구조까지만 검증됐다.
 
-logrotate:
-- 주요 로그에 logrotate가 적용되어야 한다.
-- 회전 후 서비스가 로그를 계속 기록해야 한다.
-- 로그 파일이 무제한 증가하면 HOLD다.
+security
+- 판정: `HOLD`
+- PASS 근거:
+  - main app auth는 cookie/session 기반으로 설명 가능하다.
+  - main app 상태 변경 요청은 `X-GridFlow-State-Change: 1` 헤더 요구로 최소 보호선이 있다.
+  - main app와 monitor auth boundary는 분리돼 있고, 현재 문서가 이를 숨기지 않는다.
+- HOLD 근거:
+  - formal CSRF framework로 설명할 수는 없다.
+  - raw SQL과 SQLAlchemy 경로가 혼재하고, multi-instance/session coherence는 buyer-facing `PASS` 범위가 아니다.
+  - monitor session은 process-memory 기반이며 재시작 시 세션이 유지되지 않는다.
+  - secret/session/raw SQL/multi-instance limitation은 해결된 항목과 분리해 계속 공개해야 한다.
 
-health alert:
-- 핵심 서비스 장애를 감지하는 health alert가 동작해야 한다.
-- alert 실패 자체도 확인 가능해야 한다.
-- 알림 경로와 점검 방법이 문서화되어야 한다.
+tests
+- 판정: `PASS`
+- PASS 근거:
+  - 이번 fresh integration run이 `13 passed in 22.82s`로 성공했다.
+  - 현재 verified by integration tests 범위는 아래와 같다.
+    - auth: `login`, `/auth/me`, `logout`
+    - mode: `guest / dry / live`
+    - API key: 저장과 사용자/거래소 기준 적용
+    - manual orders: Upbit/Bithumb BUY/SELL의 `request -> planned row -> gateway submit -> SUBMITTED/log`
+    - Grid: `1 cycle execution path`
+    - DCA: `1 cycle execution path`
+    - emergency control: Grid/DCA `pause/resume backend control path`
+    - Rebalancing: trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle
+- HOLD 메모:
+  - Rebalancing `SELL`/`BOTH`, fill-complete, final portfolio reconciliation은 tests `PASS` 범위가 아니다.
 
+docs
+- 판정: `PASS`
+- PASS 근거:
+  - buyer-facing 문서 9종이 현재 코드와 integration scope에 맞게 정리돼 있다.
+  - 설치, 구조, 운영, 보안, API, 지원 범위, limitation 문서가 서로 충돌하지 않는다.
+  - manual order deferred submit 구조, pause/resume 기반 control path, Rebalancing `run_once()` vs `rebalance-now` 차이가 문서에서 일관되게 표현된다.
+- 경계 메모:
+  - docs `PASS`는 문서 일관성에 대한 판정이다.
+  - evidence `HOLD`가 남는다고 해서 docs까지 자동으로 `HOLD`가 되는 것은 아니다.
 
-5. 설치 재현 게이트
+evidence
+- 판정: `HOLD`
+- PASS 근거:
+  - auth, manual order, 일부 strategy, backup/restore, health alert, runtime operations에 대한 evidence 문서는 존재한다.
+  - Rebalancing도 evidence 문서 기준으로 `rebalance-now` 운영 사례가 문서화돼 있다.
+- HOLD 근거:
+  - `DRY RUN` 일반 로그인 배지 evidence는 recent evidence로 닫혔다.
+  - health alert duplicate suppression direct proof도 recent evidence로 닫혔다.
+  - monitor buyer-facing UI와 controlled local runtime 기준 authenticated runtime proof는 recent evidence로 닫혔다.
+  - 다만 authenticated runtime proof exists in controlled local runtime라고만 적는 것이 정확하고, deployed live operator provenance not yet captured, restart 후 session durability not proven, multi-instance coherence not proven, tier proof not yet captured 상태는 여전히 evidence claim 범위 밖이다.
+  - Rebalancing `SELL`/`BOTH` evidence가 없다.
+  - Rebalancing fill-complete evidence와 portfolio final reconciliation evidence가 없다.
+  - Rebalancing known limitation이 buyer-facing evidence에서 완전히 닫히지 않았다.
+    - `positions` 미사용 / exchange balance sync 기준
+    - trigger 총액 기준 vs execution 총액 기준 불일치
+    - `current_pct` / `current_value_krw`가 목표 상태 재계산이 아님
+    - success path에 activity/audit/state log가 없음
+  - runtime emergency stop narrative와 backend contract 사이의 간극이 남아 있다.
+    - buyer-facing backend control 검증은 Grid/DCA pause/resume 기반이다.
+    - alignment note는 생겼지만, 전용 backend emergency release endpoint가 있다고 쓸 수는 없다.
 
-새 서버 기준 설치 재현:
-- 새 서버에서 문서만 보고 설치를 재현할 수 있어야 한다.
-- 숨은 수동 작업이 있으면 문서에 반영해야 한다.
-- 설치 중 필요한 계정, 패키지, 환경 변수, 서비스 파일이 누락되면 HOLD다.
+4. PASS 근거 요약
 
-서비스 기동:
-- 설치 후 필수 서비스가 정상 기동해야 한다.
-- 재부팅 후에도 필요한 서비스가 자동 기동해야 한다.
-- 서비스 상태 확인 명령이 문서와 일치해야 한다.
-- 현재 운영 기준 필수 서비스는 gridflow-app.service, orderlens-ops.service, upbit-bot.service, nginx.service, postgresql@16-main.service다.
-- upbit-web.service는 현재 운영 경로가 아니므로 문서나 점검에서 필수 active 대상으로 취급하지 않는다.
-- 현재 endpoint 기준은 로컬 8000(/), 로컬 8010(/monitor), HTTPS /, HTTPS /monitor다.
+- fresh integration suite가 현재 baseline에서 `13 passed in 22.82s`다.
+- manual orders는 요청-계획-submit-상태/log 경로가 자동 검증으로 닫혀 있다.
+- Grid와 DCA는 `1 cycle execution path verified`라고 좁게 설명할 수 있다.
+- Rebalancing은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle까지는 검증 근거가 있다.
+- buyer-facing 문서 9종은 현재 scope와 limitation을 서로 충돌 없이 설명한다.
 
-문서와 실제 동작 일치:
-- 설치 체크리스트의 명령과 실제 서버 동작이 일치해야 한다.
-- 더 이상 쓰지 않는 명령, 파일명, 포트, 서비스명이 문서에 남아 있으면 HOLD다.
-- 문서와 구현이 어긋나면 구현 또는 문서 중 하나를 수정한 뒤 재판정한다.
+5. HOLD 근거 요약
 
+- ops:
+  - health alert duplicate suppression direct proof는 recent evidence로 닫혔다.
+  - monitor 기본 UI와 controlled local runtime authenticated proof는 확보됐다.
+  - monitor 쪽 남은 간극은 deployed provenance와 restart/session durability, multi-instance coherence, tier claim 경계다.
+  - runtime emergency stop evidence와 backend contract 사이의 설명 간극은 alignment note로 boundary disclosed 상태까지 좁혀졌지만 아직 남아 있다.
+- security:
+  - formal CSRF, multi-instance session coherence, monitor memory session limitation이 남아 있다.
+  - raw SQL / session boundary limitation을 계속 공개해야 한다.
+- evidence:
+  - monitor deployed provenance / session durability / multi-instance / tier claim boundary
+  - Rebalancing `SELL`/`BOTH`
+  - Rebalancing fill-complete
+  - portfolio final reconciliation
+  - Rebalancing success path log 부재
+  - runtime emergency stop narrative vs backend contract gap
 
-6. 보안/운영 기본 게이트
+6. FAIL 근거
 
-불필요 외부 포트 차단:
-- 외부 노출 포트는 운영에 필요한 최소 범위여야 한다.
-- DB, 내부 관리 포트, 개발용 포트는 외부에 열려 있으면 안 된다.
-- 포트 노출 상태는 외부 공개 전 확인되어야 한다.
+- 현재 갱신 기준에서 즉시 `FAIL`로 내려야 할 축은 없다.
+- 다만 전체 gate는 `PASS`가 아니라 `HOLD`다. 이유는 tests/docs가 좋아졌더라도 monitor deployed provenance와 session durability / multi-instance / tier non-claim, Rebalancing broader-path limitation, emergency control contract boundary 같은 외부 설명 한계가 자동 해소되지는 않기 때문이다.
 
-권한/키 노출 금지:
-- API 키, DB URL, 세션 키, 토큰은 저장소와 로그에 노출되면 안 된다.
-- env 파일과 키 파일은 필요한 사용자만 읽을 수 있어야 한다.
-- 운영 로그에 민감 정보가 찍히면 FAIL이다.
+7. external release blocker 또는 remaining HOLD
 
-공용 env 키 의존 금지 여부:
-- LIVE 거래는 공용 env 키에 의존하면 안 된다.
-- 사용자별 저장 키가 우선 적용되어야 한다.
-- 공용 키가 필요한 경우 용도, 범위, 제거 계획을 기록해야 한다.
+- 전체 release gate는 계속 `HOLD`
+- remaining HOLD:
+  - ops `HOLD`
+  - security `HOLD`
+  - evidence `HOLD`
+- closed by recent evidence:
+  - `DRY RUN` 일반 로그인 배지 evidence
+  - health alert duplicate suppression buyer-facing direct proof
+- softened but still HOLD:
+  - monitor deployed provenance / session durability / multi-instance / tier claim boundary
+  - runtime emergency stop narrative vs backend contract gap
+- remaining disclose-only limitations:
+  - 현재 backend 제어 검증은 Grid/DCA pause/resume 기반이다.
+  - dedicated backend emergency release endpoint 부재
+  - authenticated runtime proof exists in controlled local runtime
+  - deployed live operator provenance not yet captured
+  - monitor session durability across restart is not claimed
+  - multi-instance monitor coherence is not claimed
+  - monitor tier proof is not claimed
+  - Rebalancing 검증은 trigger-reading `run_once()` path의 `BUY_ONLY` 1 cycle까지다.
+  - `rebalance-now`는 force path로 trigger를 우회한다.
+  - Rebalancing은 `positions`를 쓰지 않고 exchange balances로 `current_qty`를 sync한다.
+  - Rebalancing trigger 총액 기준과 execution 총액 기준은 일치하지 않는다.
+  - `current_pct` / `current_value_krw`는 목표 상태 재계산이 아니다.
+  - Rebalancing success path에는 activity/audit/state log가 충분하지 않다.
+- still not claimed:
+  - dedicated backend emergency release API
+  - single global incident release API
+  - deployed live operator authenticated monitor provenance
+  - monitor session durability across restart
+  - durable monitor session architecture
+  - multi-instance monitor coherence
+  - monitor tier proof
+  - Rebalancing `SELL`/`BOTH`/fill-complete/final reconciliation verified claim
+- 다음 추가 evidence가 진짜 필요한지:
+  - `DRY RUN` 일반 로그인 배지와 health alert duplicate suppression은 현재 기준으로 더 모을 필요가 없다.
+  - monitor 기본 UI/authenticated runtime 존재 proof도 현재 기준으로 더 모을 필요가 없다.
+  - monitor 쪽 추가 evidence가 정말 필요하다면, 그것은 deployed live operator provenance를 더 두껍게 하고 싶을 때의 optional 작업이다.
+  - runtime emergency stop narrative는 추가 raw보다 contract boundary를 넘겨 말하지 않는 것이 더 중요하다.
 
+8. 왜 아직 과장하면 안 되는지
 
-7. 문서 일치 게이트
-
-scope / runbook / checklist와 실제 기능 일치:
-- 책임 경계 문서의 범위와 실제 기능이 일치해야 한다.
-- 인수인계 런북의 운영 절차가 현재 서버 상태와 일치해야 한다.
-- 설치 체크리스트의 단계가 새 서버 기준으로 재현 가능해야 한다.
-- 문서 간 충돌이 있으면 외부 공개 전 하나의 기준으로 정리해야 한다.
-
-
-8. 판정 방식
-
-PASS:
-- 모든 필수 게이트를 통과했다.
-- 남은 이슈가 외부 공개 또는 실납품에 영향을 주지 않는다.
-
-HOLD:
-- 핵심 기능은 동작하지만 외부 판매 전 해결해야 할 리스크가 남아 있다.
-- HOLD 상태에서는 외부 판매 금지다.
-- HOLD 항목은 원인, 영향, 담당자, 재판정 조건을 기록해야 한다.
-
-FAIL:
-- 핵심 플로우, 보안, 설치 재현, 운영 안정성 중 하나 이상이 명확히 깨졌다.
-- FAIL 상태에서는 외부 공개, 데모, 실납품을 진행하지 않는다.
-
-
-9. 현재 미해결 이슈 기록란
-
-아래 항목은 외부 공개 전 남은 버그, 잡음, 운영 리스크를 기록하는 칸이다.
-
-- 이슈:
-  영향:
-  상태:
-  담당:
-  재판정 조건:
-
-- 이슈:
-  영향:
-  상태:
-  담당:
-  재판정 조건:
-
-- 이슈:
-  영향:
-  상태:
-  담당:
-  재판정 조건:
+현재 기준에서 tests와 docs는 분명히 좋아졌고, monitor buyer-facing UI와 controlled local runtime authenticated runtime proof도 확보됐다. 그러나 이것만으로 전체 release를 `PASS`로 올리면, deployed live operator provenance not yet captured와 session durability / multi-instance coherence / tier non-claim, Rebalancing broader-path limitation, emergency control contract boundary를 buyer-facing으로 숨기게 된다. 즉 지금 남은 `HOLD`는 “무엇을 아직 주장하지 않는지”를 계속 고지해야 한다는 성격의 `HOLD`다.

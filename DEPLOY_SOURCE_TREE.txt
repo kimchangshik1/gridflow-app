@@ -1,0 +1,38 @@
+DEPLOY_SOURCE_TREE
+
+Script Path
+- `/home/ubuntu/upbit_bot/ops/deploy_source_tree.sh`
+
+Dry-Run Example
+```bash
+bash ops/deploy_source_tree.sh --target-app-dir /tmp/gridflow_source_deploy_test/app
+```
+
+Execute Example
+```bash
+bash ops/deploy_source_tree.sh --target-app-dir /tmp/gridflow_source_deploy_test/app --execute
+bash ops/deploy_source_tree.sh --source-dir /home/ubuntu/upbit_bot --target-app-dir /tmp/gridflow_source_deploy_test/app --execute
+```
+
+Exclude Rules Summary
+- excludes local virtualenv and caches:
+  - `venv/`
+  - `__pycache__/`
+  - `*.pyc`
+  - `.pytest_cache/`
+  - `.mypy_cache/`
+- excludes rendered install artifacts:
+  - `_install_render/`
+  - `_install_render_rehearsal/`
+  - `_install_render_ops_assets/`
+  - `_install_render_full_rehearsal/`
+- excludes live/generated logs:
+  - `bot.log*`
+  - `monitor.log*`
+  - `monitor_8010.log*`
+  - `monitor_uvicorn.log*`
+  - `nohup.out*`
+
+Out Of Scope
+- this script does not prepare venv or install requirements
+- this script does not activate services or start systemd/nginx
