@@ -1,0 +1,30 @@
+PREPARE_APP_RUNTIME
+
+Script Path
+- `/home/ubuntu/upbit_bot/ops/prepare_app_runtime.sh`
+
+Dry-Run Example
+```bash
+bash ops/prepare_app_runtime.sh --app-dir /tmp/gridflow_runtime_prepare_test/app
+```
+
+Execute Example
+```bash
+bash ops/prepare_app_runtime.sh --app-dir /tmp/gridflow_runtime_prepare_test/app --execute
+bash ops/prepare_app_runtime.sh --app-dir /tmp/gridflow_runtime_prepare_test/app --python-bin /usr/bin/python3 --execute
+```
+
+Preconditions
+- source tree already exists under `--app-dir`
+- `requirements-web.txt` already exists under `--app-dir`
+- chosen Python can run `-m venv`
+
+Behavior
+- verifies `--app-dir`
+- verifies `requirements-web.txt`
+- creates `venv/`
+- installs `requirements-web.txt`
+- verifies `venv/bin/python3` or `venv/bin/python`
+
+Out Of Scope
+- this script does not copy, clone, or deliver source into `--app-dir`

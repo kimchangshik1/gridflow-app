@@ -1,0 +1,191 @@
+GRIDFLOW RELEASE EVIDENCE
+
+기준 시각
+- 작성 기준: 2026-04-20 UTC
+- 범위: 저장소 문서, 현재 서버 상태, 확인 가능한 운영 로그, 2026-04-18 Codex 검증 실행 결과, 2026-04-20 evidence 문서 묶음
+
+1. HTTPS 검증 근거
+- 2026-04-18 확인 결과:
+  - `curl -sS -o /dev/null -w 'https_root_code=%{http_code}' https://gridflow.co.kr/` 결과 `200`
+  - `curl -sS -o /dev/null -w 'https_monitor_code=%{http_code} redirect=%{redirect_url}' https://gridflow.co.kr/monitor` 결과 `302`, redirect `https://gridflow.co.kr/monitor/login`
+- 추가 확인:
+  - `curl -I https://gridflow.co.kr/` 결과 `405 Method Not Allowed`
+  - 이는 HEAD 요청 기준 결과이며, D_OPERATIONS_RUNBOOK.txt의 acceptance 기준은 GET `/` 200과 GET `/monitor` redirect다.
+- 근거 출처:
+  - D_OPERATIONS_RUNBOOK.txt
+  - 2026-04-18 curl 실행 결과
+
+2. DB 백업 성공 근거
+- `/var/log/gridflow_backup.log` 최근 기록:
+  - `2026-04-18T03:24:00Z START backup target=/var/backups/gridflow/upbit_bot_20260418_032400.dump`
+  - `2026-04-18T03:24:01Z OK backup file=/var/backups/gridflow/upbit_bot_20260418_032400.dump`
+- 백업 자동 실행 기준 문서:
+  - D_OPERATIONS_RUNBOOK.txt에 `gridflow-pg-backup.timer`, daily 03:20 UTC로 기록
+- 근거 출처:
+  - /var/log/gridflow_backup.log
+  - D_OPERATIONS_RUNBOOK.txt
+
+3. 복구 검증 성공 근거
+- `/var/log/gridflow_restore_verify.log` 최근 기록:
+  - `2026-04-18T07:22:19Z START restore_verify dump=/var/backups/gridflow/upbit_bot_20260418_032400.dump db=gridflow_restore_verify_20260418_072219`
+  - `2026-04-18T07:22:21Z OK restore_verify tables=19 estimated_rows=285563 key_tables=activity_logs, grid_orders, grid_strategies, planned_orders, users`
+- 복구 검증 방식 문서:
+  - D_OPERATIONS_RUNBOOK.txt에 운영 DB를 덮어쓰지 않고 임시 DB에 복원한다고 기록
+- 근거 출처:
+  - /var/log/gridflow_restore_verify.log
+  - D_OPERATIONS_RUNBOOK.txt
+
+4. 로그 로테이션 설정 근거
+- `/etc/logrotate.d/gridflow` 확인 결과:
+  - 대상 로그:
+    - `/home/ubuntu/upbit_bot/bot.log`
+    - `/home/ubuntu/upbit_bot/monitor.log`
+    - `/home/ubuntu/upbit_bot/monitor_8010.log`
+    - `/home/ubuntu/upbit_bot/monitor_uvicorn.log`
+    - `/home/ubuntu/upbit_bot/nohup.out`
+    - `/var/log/gridflow_backup.log`
+    - `/var/log/gridflow_restore_verify.log`
+    - `/var/log/gridflow_alert.log`
+  - 정책: `daily`, `rotate 7`, `missingok`, `notifempty`, `compress`, `delaycompress`, `copytruncate`
+- 문서 일치:
+  - D_OPERATIONS_RUNBOOK.txt에 같은 로그 파일과 정책이 기록돼 있다.
+- 근거 출처:
+  - /etc/logrotate.d/gridflow
+  - D_OPERATIONS_RUNBOOK.txt
+
+5. health alert / 외부 webhook 알림 성공 근거
+- health alert 구조:
+  - `ops/gridflow_health_alert.sh`는 `/home/ubuntu/upbit_bot/.env`를 읽고 `GRIDFLOW_ALERT_WEBHOOK_URL` 또는 fallback `DISCORD_WEBHOOK_URL`를 사용한다.
+  - `gridflow-health-alert.timer`는 5분 주기다.
+- 현재 로그 근거:
+  - `/var/log/gridflow_alert.log` 최근 기록에 `2026-04-18T09:09:57Z GridFlow health alert ... service upbit-bot.service active=inactive substate=dead`가 있다.
+- 외부 webhook 검증 근거:
+  - 2026-04-18 Codex 검증 실행에서 mocked FAIL 2회 연속 실행 결과:
+    - `rc1=2`
+    - `rc2=2`
+    - `webhook_calls=1`
+    - `webhook_last_code=204`
+    - `suppression=confirmed`
+  - 위 검증은 실제 서비스 지속 장애를 만들지 않고 mocked local failure로 수행됐다.
+- 상태 파일 근거:
+  - 검증 중 `/var/lib/gridflow/health_alert.push.last`가 1차 실행 시 갱신되고 2차 동일 장애에서 유지됨을 확인했다.
+  - 검증 종료 후 상태 파일은 원복됐다.
+- 현재 raw pack 재확인 결과:
+  - `evidence/raw/ops/health_alert_suppression_check.txt` 기준 dispatch line과 timer/journal 성공 종료는 보인다.
+  - 하지만 현재 raw 파일에서는 duplicate suppression을 직접 보여주는 line/state file은 재확인되지 않았다.
+  - 따라서 현재 release 판정은 `limited`를 유지한다.
+- 근거 출처:
+  - ops/gridflow_health_alert.sh
+  - D_OPERATIONS_RUNBOOK.txt
+  - /var/log/gridflow_alert.log
+  - 2026-04-18 Codex 검증 실행 결과
+
+6. 현재 활성 서비스 구조
+- 2026-04-18 `systemctl status` 확인 결과 active:
+  - `gridflow-app.service`
+  - `orderlens-ops.service`
+  - `upbit-bot.service`
+  - `nginx.service`
+  - `postgresql@16-main.service`
+- 실행 경로 확인:
+  - `gridflow-app.service`: `python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
+  - `orderlens-ops.service`: `python3 -m uvicorn app.monitor.product_app:app --host 127.0.0.1 --port 8010`
+  - `upbit-bot.service`: `python3 -u -m app.bot`
+- health alert 구조:
+  - `gridflow-health-alert.timer`: enabled, active(waiting)
+  - `gridflow-health-alert.service`: oneshot, 최근 실행 `status=0/SUCCESS`
+- 근거 출처:
+  - 2026-04-18 systemctl status 결과
+  - D_OPERATIONS_RUNBOOK.txt
+  - GRIDFLOW_RELEASE_QUALITY_GATES.txt
+
+7. 대단원 4 E2E evidence pack 반영 상태
+- 기준 입력 문서:
+  - `AUTH_MODE_EVIDENCE.md`
+  - `MANUAL_ORDER_EVIDENCE.md`
+  - `STRATEGY_EVIDENCE.md`
+  - `OPERATIONS_EVIDENCE.md`
+  - `sales/evidence_one_pager.md`
+  - `evidence/raw/INDEX.md`
+- confirmed:
+  - 메인 앱 auth는 cookie 기반 세션 구조로 정리되어 있고 `/auth/me` 기반 세션 복원 경로가 설명 가능하다.
+  - auth buyer-facing 캡처 묶음 중 guest 기준 핵심 샷은 확보됐다.
+    - `guest_mode_badge.png`
+    - `logout_overlay_return.png`
+    - `refresh_session_result.png`
+    - `login_error_invalid_credentials.png`
+  - 일반 로그인 성공 후 `LIVE` 배지 캡처도 확보됐다.
+    - `live_mode_badge.png`
+    - `live_badge_direct_register_result.json`
+  - Upbit/Bithumb manual BUY/SELL 성공 사례가 각각 최신 1건씩 DB와 활동 로그, 상태 전이 로그로 추적된다.
+  - guest manual sandbox proof bundle을 추가했다.
+    - `sales/guest_sandbox_proof_bundle.md`
+    - guest 세션, `GUEST` 배지, Upbit/Bithumb BUY/SELL runtime JSON, `sandbox: true` 단서가 함께 묶여 있다.
+    - `evidence/raw/manual/guest_sandbox_db_extract.txt`
+    - `sandbox_orders` row `20`~`23`, `activity_logs` row `46520`~`46523`까지 연결된다.
+  - Upbit/Bithumb manual BUY/SELL은 guest sandbox 기준 buyer-facing UI 캡처 세트도 확보됐다.
+    - Upbit: `upbit_guest_buy_result.png`, `upbit_guest_sell_result.png`
+    - Bithumb: `bithumb_guest_buy_result.png`, `bithumb_guest_sell_result.png`
+  - Grid는 `strategy_id=19` 기준 진입 후 대기 매도 상태 근거가 있다.
+  - DCA는 `strategy_id=8`, `dca_orders.id=22` 기준 사용자 키 라우팅이 걸린 실행 근거가 있다.
+  - backup dump 실파일은 `2026-04-20` 기준 재확인됐다.
+    - `/var/backups/gridflow/upbit_bot_20260420_032935.dump`
+    - `/home/ubuntu/upbit_bot/evidence/raw/ops/backup_dump_presence.txt`
+  - restore verify 성공은 `2026-04-20` 기준 재확인됐다.
+    - `/home/ubuntu/upbit_bot/evidence/raw/ops/restore_verify_excerpt.txt`
+  - emergency stop, health alert, monitor recent orders/activity/error/filter/read-only 관측 경로가 문서/로그/코드 기준으로 설명 가능하다.
+- limited:
+  - Rebalancing은 `live confirmed`가 아니라 `dry-run confirmed + trigger/code trace` 수준이다.
+  - auth는 `GUEST`와 `LIVE` 화면 증거가 보강됐지만 `DRY RUN` 일반 로그인 배지 캡처는 현재 repo/docs/evidence 범위에서 safe capture path가 blocked 상태다.
+    - 관리자 dry-run 토글 경로 의존
+  - manual order live evidence는 DB/log 기준이고, buyer-facing UI 캡처는 Upbit/Bithumb 모두 guest sandbox 기준이며 live 주문 직접 캡처는 아니다.
+  - live manual order의 buyer-facing before/after 및 UI-DB mapping 캡처는 현재 repo/docs/evidence 범위에서 safe capture path가 blocked 상태다.
+    - 승인된 안전 테스트 계정/자본/세션 경로 미확인
+    - 기존 live row를 UI에서 안전하게 다시 띄울 monitor path도 blocked
+  - guest sandbox proof bundle은 UI/JSON/문서에 더해 `sandbox_orders` / `activity_logs` DB raw bridge까지 포함한다.
+  - 다만 `sandbox_balances` full before/after 시계열은 아직 없다.
+  - guest 포지션 수량은 UI/runtime 단서가 있지만, 현재 DB 스키마만으로는 guest별 row에 직접 연결되지 않는다.
+  - health alert는 발송 로그와 timer/state는 확인됐지만 duplicate suppression direct raw proof는 이번 raw pack에서도 확보하지 못했다.
+  - 전략/운영 대부분은 여전히 코드·DB·로그 중심이며 Grid/DCA/monitor buyer-facing 화면 캡처는 부족하다.
+  - Grid/DCA/Rebal 기존 전략 UI와 monitor buyer-facing UI는 현재 repo/docs/evidence 범위에서 safe capture path가 blocked 상태다.
+  - emergency stop/release UI 캡처도 현재 repo/docs/evidence 범위에서 safe capture path가 blocked 상태다.
+    - DB/log 근거는 있음
+    - 기존 상태를 read-only로 보여줄 경로는 확인되지 않음
+    - 상태 변경 버튼 경로는 buyer-facing read-only 증거 경로로 쓰지 않음
+- missing:
+  - `GUEST / DRY RUN / LIVE` 3종 완전 세트
+  - `DRY RUN` 배지 UI 캡처
+  - live manual order 잔액 before/after와 UI-DB 직접 매핑 증거
+  - guest sandbox balance before/after full 시계열
+  - `guest 포지션 수량 DB bridge`는 현재 스키마 제약으로 `unavailable`
+    - `sandbox_balances`는 KRW만 저장
+    - `sandbox_orders`는 주문 row만 저장
+    - `positions`는 `user_id`가 없음
+  - Grid/DCA/Rebalancing UI 캡처
+    - 기존 전략 UI는 guest에서 빈 목록이며, 기존 evidence user 전략을 안전하게 재현할 경로는 현재 repo/docs/evidence 범위에서 확인되지 않았다
+  - Rebalancing live confirmed 사례
+  - emergency stop/release UI 캡처
+  - monitor buyer-facing 화면 캡처
+    - main auth/guest 재사용 불가, 별도 `monitor_session` 로그인 경로 필요
+
+8. 현재 release 관점 요약
+- 저장소 내 내부 품질 기준 문서:
+  - `GRIDFLOW_RELEASE_QUALITY_GATES.txt`는 기준만 정의하고 있으며, 현재 미해결 이슈 기록란은 비어 있다.
+- 현재 확인 가능한 strong evidence:
+  - auth: `AUTH_MODE_EVIDENCE.md`, `auth_security_audit.md`
+  - manual order: `planned_order_id=97`, `89`, `95`, `87`
+  - strategy: `strategy_id=19`, `dca_orders.id=22`, `rebalancing_orders.id=1,2`
+  - operations: `audit_logs.id=238512`, `GRIDFLOW_RELEASE_EVIDENCE.txt`, `DEPLOYMENT_BASELINE.txt`
+- 현재 external HOLD 후보:
+  - 전략/monitor 중심 UI 캡처 부족
+  - 일부 핵심 캡처는 현재 repo/docs/evidence 범위에서 safe capture path가 blocked 상태
+  - Rebalancing live 근거 부재
+  - health alert duplicate suppression raw line 부재
+
+9. 미확인 / 제한 항목
+- 브라우저에서 인증서 경고 없음 여부: 미확인
+- 80 -> 443 리다이렉트 동작 여부: 미확인
+- 외부 노출 포트 최소화 여부: 미확인
+- 새 서버 기준 설치 재현 완료 여부: 미확인
+- Rebalancing live confirmed 사례: 미확인
+- buyer-facing UI 캡처 세트: 다수 미확인

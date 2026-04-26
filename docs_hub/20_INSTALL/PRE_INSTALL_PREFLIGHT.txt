@@ -1,0 +1,40 @@
+PRE_INSTALL_PREFLIGHT
+
+Usage
+```bash
+python3 ops/pre_install_preflight.py --values ops/templates/install_values.example.json
+python3 ops/pre_install_preflight.py --values ops/templates/install_values.rehearsal.json
+```
+
+Checks
+- values file exists and parses as JSON
+- required keys exist and are non-empty
+- `APP_DIR` exists
+- `VENV_PYTHON` exists and is executable
+- users exist:
+  - `APP_USER`
+  - `BOT_USER`
+  - `MONITOR_USER`
+- groups exist:
+  - `APP_GROUP`
+  - `MONITOR_GROUP`
+- commands exist:
+  - `python3`
+  - `systemctl`
+  - `nginx`
+  - `curl`
+- repo files exist:
+  - `ops/apply_install_payload.py`
+  - `ops/apply_install_permissions.py`
+  - `ops/post_install_activate.sh`
+  - `ops/post_install_smoke_check.sh`
+  - `ops/install_permissions.json`
+
+Exit Policy
+- prints `PASS` or `FAIL` per check
+- prints final `overall: PASS` or `overall: FAIL`
+- returns non-zero if any check fails
+
+No-Write Guarantee
+- this checker reads the values file, repository files, user/group database, and command availability only
+- it does not modify files, service state, or system configuration

@@ -1,0 +1,38 @@
+GRIDFLOW OWNER COCKPIT
+
+Current official status
+- Buyer-facing disposition: READY WITH KNOWN LIMITATIONS
+- Internal release gate snapshot: HOLD
+- Basis: frozen outbound tarball exists, checksum/manifest exists, docs are staged, remaining red items are claim-boundary issues
+
+Send now
+- release/gridflow_buyer_final_freeze_20260425.tar.gz
+- release/SHA256SUMS.txt
+- release/GRIDFLOW_FINAL_FREEZE_MANIFEST.txt
+- delivery/ docs and sales set inside the frozen tarball
+
+Request only
+- delivery/evidence/diligence_only/
+- separate curated diligence binder
+- clean/squash repo only after hygiene review
+
+Do not send
+- full history repo
+- runtime secrets, backup dumps, raw env files
+- debug/temp/archive/internal_hold artifacts
+
+Final deliverable location
+- release/gridflow_buyer_final_freeze_20260425.tar.gz
+
+Final document entrance
+- docs_hub/00_OWNER/DOCS_HUB_INDEX.txt
+
+Most important limitations
+- Rebalancing verified baseline is limited; SELL/BOTH/fill-complete/final reconciliation are not buyer-facing verified scope
+- positions is not a canonical holdings ledger
+- monitor session model is memory-backed and single-instance scoped
+
+Current red issues
+- monitor deployed-live provenance and session durability/multi-instance claims are still not closed
+- rebalancing verified scope is still narrow and structural limitations remain disclosed
+- emergency stop narrative and backend contract boundary still need careful wording

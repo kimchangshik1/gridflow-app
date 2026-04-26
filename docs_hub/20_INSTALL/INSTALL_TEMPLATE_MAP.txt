@@ -1,0 +1,163 @@
+INSTALL_TEMPLATE_MAP
+Measured at: 2026-04-20 UTC
+Scope: repo template mapping for installed systemd/nginx payloads
+Source rule: templates derived from currently installed live files only
+
+1. Source Files
+
+- /etc/systemd/system/gridflow-app.service
+- /etc/systemd/system/upbit-bot.service
+- /etc/systemd/system/orderlens-ops.service
+- /etc/nginx/sites-available/gridflow
+
+2. Generated Template Files
+
+- /home/ubuntu/upbit_bot/ops/templates/gridflow-app.service
+- /home/ubuntu/upbit_bot/ops/templates/upbit-bot.service
+- /home/ubuntu/upbit_bot/ops/templates/orderlens-ops.service
+- /home/ubuntu/upbit_bot/ops/templates/nginx.gridflow.conf
+
+3. Placeholder List
+
+- {{APP_DIR}}
+- {{VENV_PYTHON}}
+- {{ENV_FILE}}
+- {{CONFIG_DIR}}
+- {{APP_USER}}
+- {{APP_GROUP}}
+- {{BOT_USER}}
+- {{MONITOR_USER}}
+- {{MONITOR_GROUP}}
+- {{MONITOR_CONFIG_PATH}}
+- {{MONITOR_AUTH_PATH}}
+- {{APP_BIND_HOST}}
+- {{APP_BIND_PORT}}
+- {{MONITOR_BIND_HOST}}
+- {{MONITOR_BIND_PORT}}
+- {{MONITOR_LOG_FILE}}
+- {{SERVER_NAME}}
+- {{NGINX_HTTP_PORT}}
+- {{NGINX_HTTPS_PORT}}
+- {{SSL_CERT_PATH}}
+- {{SSL_KEY_PATH}}
+
+4. Placeholder Meaning And Replacement Values
+
+- {{APP_DIR}}
+  Meaning: deployed project root used as WorkingDirectory and app writable path
+  Live source value: /home/ubuntu/upbit_bot
+
+- {{VENV_PYTHON}}
+  Meaning: Python interpreter inside the project virtualenv used by systemd ExecStart
+  Live source value: /home/ubuntu/upbit_bot/venv/bin/python3
+
+- {{ENV_FILE}}
+  Meaning: main runtime env file loaded by all three services
+  Live source value: /etc/gridflow/gridflow.env
+
+- {{CONFIG_DIR}}
+  Meaning: directory containing runtime env/config/auth files for monitor service pre-create step
+  Live source value: /etc/gridflow
+
+- {{APP_USER}}
+  Meaning: system user for the main web app service
+  Live source value: gridflowsvc
+
+- {{APP_GROUP}}
+  Meaning: system group for the main web app service
+  Live source value: gridflowsvc
+
+- {{BOT_USER}}
+  Meaning: system user for the trading bot service
+  Live source value: ubuntu
+
+- {{MONITOR_USER}}
+  Meaning: system user for the monitor service
+  Live source value: monitor
+
+- {{MONITOR_GROUP}}
+  Meaning: system group for the monitor service and config file access
+  Live source value: monitor
+
+- {{MONITOR_CONFIG_PATH}}
+  Meaning: monitor runtime config JSON file path
+  Live source value: /etc/gridflow/monitor_config.json
+
+- {{MONITOR_AUTH_PATH}}
+  Meaning: monitor password/auth JSON file path
+  Live source value: /etc/gridflow/monitor_auth.json
+
+- {{APP_BIND_HOST}}
+  Meaning: bind host for app.main uvicorn
+  Live source value: 127.0.0.1
+
+- {{APP_BIND_PORT}}
+  Meaning: bind port for app.main uvicorn
+  Live source value: 8000
+
+- {{MONITOR_BIND_HOST}}
+  Meaning: bind host for app.monitor.product_app uvicorn
+  Live source value: 127.0.0.1
+
+- {{MONITOR_BIND_PORT}}
+  Meaning: bind port for app.monitor.product_app uvicorn
+  Live source value: 8010
+
+- {{MONITOR_LOG_FILE}}
+  Meaning: file target for orderlens-ops stdout/stderr append logging
+  Live source value: /home/ubuntu/upbit_bot/monitor_uvicorn.log
+
+- {{SERVER_NAME}}
+  Meaning: nginx server_name for public routing
+  Live source value: gridflow.co.kr
+
+- {{NGINX_HTTP_PORT}}
+  Meaning: nginx plain HTTP listen port
+  Live source value: 80
+
+- {{NGINX_HTTPS_PORT}}
+  Meaning: nginx TLS listen port
+  Live source value: 443
+
+- {{SSL_CERT_PATH}}
+  Meaning: TLS certificate path referenced by the nginx site
+  Live source value: /etc/letsencrypt/live/gridflow.co.kr-0001/fullchain.pem
+
+- {{SSL_KEY_PATH}}
+  Meaning: TLS private key path referenced by the nginx site
+  Live source value: /etc/letsencrypt/live/gridflow.co.kr-0001/privkey.pem
+
+5. Installation-Time Replacement Targets
+
+- Clean install matching current production shape:
+  placeholders may be replaced with the current live values above
+
+- Rehearsal or alternate host install:
+  replace at least:
+  {{APP_DIR}}
+  {{VENV_PYTHON}}
+  {{ENV_FILE}}
+  {{CONFIG_DIR}}
+  {{APP_USER}}
+  {{APP_GROUP}}
+  {{BOT_USER}}
+  {{MONITOR_USER}}
+  {{MONITOR_GROUP}}
+  {{MONITOR_CONFIG_PATH}}
+  {{MONITOR_AUTH_PATH}}
+  {{APP_BIND_HOST}}
+  {{APP_BIND_PORT}}
+  {{MONITOR_BIND_HOST}}
+  {{MONITOR_BIND_PORT}}
+  {{MONITOR_LOG_FILE}}
+  {{SERVER_NAME}}
+  {{NGINX_HTTP_PORT}}
+  {{NGINX_HTTPS_PORT}}
+  {{SSL_CERT_PATH}}
+  {{SSL_KEY_PATH}}
+
+6. Not Template-Covered Yet
+
+- backup/health-alert systemd timer/service templates were already present in /home/ubuntu/upbit_bot/ops and were not re-templated in this turn
+- no repo-side install script or substitution script was created in this turn
+- no secret values from env/json were templated in this turn; only systemd/nginx payloads were added

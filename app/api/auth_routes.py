@@ -111,6 +111,8 @@ def _record_success(username: str):
 _IP_FAIL_WINDOW   = timedelta(minutes=30)   # 실패 집계 기간 (TTL)
 _IP_FAIL_LIMIT    = 10                       # window 내 허용 실패 횟수
 _IP_LOCK_DURATION = timedelta(minutes=15)    # 임계치 초과 시 잠금 시간
+_DEFAULT_LOGIN_SESSION_TTL = timedelta(hours=1)
+_REMEMBER_LOGIN_SESSION_TTL = timedelta(days=7)
 
 def _get_client_ip(request: Request) -> str:
     # nginx: proxy_set_header X-Real-IP $remote_addr → 클라이언트 위조 불가
@@ -240,6 +242,7 @@ router = APIRouter()
 class LoginRequest(BaseModel):
     username: str
     password: str
+    remember_me: bool = False
 
 class CreateUserRequest(BaseModel):
     username: str
@@ -283,14 +286,18 @@ def login(req: LoginRequest, response: Response, request: Request):
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다")
     _record_success(req.username)
     # IP 카운터는 30분 window 만료로 자연 소멸 — 즉시 초기화 금지
+    session_ttl = _REMEMBER_LOGIN_SESSION_TTL if req.remember_me else _DEFAULT_LOGIN_SESSION_TTL
+    user["session_ttl"] = session_ttl
     token = create_session(user)
-    response.set_cookie(
-        key="session",
-        value=token,
-        httponly=True,
-        max_age=86400 * 7,  # 7일
-        samesite="lax"
-    )
+    cookie_kwargs = {
+        "key": "session",
+        "value": token,
+        "httponly": True,
+        "samesite": "lax",
+    }
+    if req.remember_me:
+        cookie_kwargs["max_age"] = int(session_ttl.total_seconds())
+    response.set_cookie(**cookie_kwargs)
     return {
         "success": True,
         "user_id": user["id"],

@@ -1,0 +1,151 @@
+CONFIG_TEMPLATE_MAP
+Measured at: 2026-04-20 UTC
+Scope: repo template mapping for installed /etc/gridflow config payloads
+Source rule: templates derived from currently installed live files and existing env/schema docs only
+
+1. Source Files
+
+- /etc/gridflow/gridflow.env
+- /etc/gridflow/monitor_config.json
+- /etc/gridflow/monitor_auth.json
+- /home/ubuntu/upbit_bot/ENV_SCHEMA.txt
+- /home/ubuntu/upbit_bot/INSTALL_TEMPLATE_MAP.txt
+
+2. Generated Template Files
+
+- /home/ubuntu/upbit_bot/ops/templates/gridflow.env.template
+- /home/ubuntu/upbit_bot/ops/templates/monitor_config.json.template
+- /home/ubuntu/upbit_bot/ops/templates/monitor_auth.json.template
+
+3. Placeholder List
+
+- {{DRY_RUN}}
+- {{DB_URL}}
+- {{JWT_SECRET}}
+- {{GRIDFLOW_ALERT_WEBHOOK_URL}}
+- {{MONITOR_EXCHANGE}}
+- {{MONITOR_API_KEY}}
+- {{MONITOR_API_SECRET}}
+- {{MONITOR_TIER}}
+- {{MONITOR_PASSWORD_HASH}}
+
+4. Placeholder Meaning
+
+- {{DRY_RUN}}
+  Meaning: global dry-run switch read by app/core/config.py
+  Location: gridflow.env
+  Required/Optional: optional
+
+- {{DB_URL}}
+  Meaning: primary PostgreSQL connection string for web, bot, monitor, and backup script
+  Location: gridflow.env
+  Required/Optional: required
+
+- {{JWT_SECRET}}
+  Meaning: value present in the current installed env file, but runtime reference is unproven in current inspected code
+  Location: gridflow.env
+  Required/Optional: unproven / currently treated as installed-file placeholder only
+
+- {{GRIDFLOW_ALERT_WEBHOOK_URL}}
+  Meaning: outbound webhook endpoint for health-alert push notifications
+  Location: gridflow.env
+  Required/Optional: optional
+
+- {{MONITOR_EXCHANGE}}
+  Meaning: exchange selector consumed by monitor config
+  Location: monitor_config.json
+  Required/Optional: required
+
+- {{MONITOR_API_KEY}}
+  Meaning: monitor exchange API key
+  Location: monitor_config.json
+  Required/Optional: required
+
+- {{MONITOR_API_SECRET}}
+  Meaning: monitor exchange API secret
+  Location: monitor_config.json
+  Required/Optional: required
+
+- {{MONITOR_TIER}}
+  Meaning: monitor tier value read by app/monitor/tier.py
+  Location: monitor_config.json
+  Required/Optional: optional
+
+- {{MONITOR_PASSWORD_HASH}}
+  Meaning: stored bcrypt password hash for monitor login
+  Location: monitor_auth.json
+  Required/Optional: required
+
+5. Install-Time Replacement Values
+
+- {{DRY_RUN}}
+  Replace with: `true` or `false`
+  Manual input needed: yes
+
+- {{DB_URL}}
+  Replace with: PostgreSQL URL for the target environment
+  Expected shape from current install: `postgresql://USER:PASSWORD@HOST:PORT/DBNAME`
+  Manual input needed: yes
+
+- {{JWT_SECRET}}
+  Replace with: deployment-specific secret string if this key is kept in the install payload
+  Manual input needed: yes
+
+- {{GRIDFLOW_ALERT_WEBHOOK_URL}}
+  Replace with: deployment-specific webhook URL or leave empty if alerts are intentionally disabled
+  Manual input needed: yes
+
+- {{MONITOR_EXCHANGE}}
+  Replace with: current allowed/live-observed exchange value such as `upbit` or `bithumb`
+  Manual input needed: yes
+
+- {{MONITOR_API_KEY}}
+  Replace with: monitor exchange API key
+  Manual input needed: yes
+
+- {{MONITOR_API_SECRET}}
+  Replace with: monitor exchange API secret
+  Manual input needed: yes
+
+- {{MONITOR_TIER}}
+  Replace with: `lite`, `pro`, or `signature`
+  Manual input needed: yes if tier is used; otherwise choose a default intentionally
+
+- {{MONITOR_PASSWORD_HASH}}
+  Replace with: bcrypt hash string, not plain password
+  Manual input needed: yes
+
+6. Required vs Optional Summary
+
+- Required placeholders:
+  {{DB_URL}}
+  {{MONITOR_EXCHANGE}}
+  {{MONITOR_API_KEY}}
+  {{MONITOR_API_SECRET}}
+  {{MONITOR_PASSWORD_HASH}}
+
+- Optional placeholders:
+  {{DRY_RUN}}
+  {{GRIDFLOW_ALERT_WEBHOOK_URL}}
+  {{MONITOR_TIER}}
+
+- Unproven-but-installed placeholder:
+  {{JWT_SECRET}}
+
+7. Manual-Input Values At Install
+
+- DB connection string
+- monitor exchange choice
+- monitor API key
+- monitor API secret
+- bcrypt password hash for monitor auth
+- optional alert webhook URL
+- optional DRY_RUN choice
+- optional monitor tier
+- optional or policy-dependent JWT secret
+
+8. Not Template-Covered Yet
+
+- no generator script for producing `MONITOR_PASSWORD_HASH` from a plain password was created in this turn
+- no sanitized sample values were added; only placeholders were added
+- optional env keys known in code but absent from the current installed `/etc/gridflow/gridflow.env` were intentionally not added to `gridflow.env.template`

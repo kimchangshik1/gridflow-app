@@ -4,8 +4,100 @@ window.countActiveStrategiesSafe = function(data) {
   return (data && data.strategies ? data.strategies.filter(isStrategyActuallyActive).length : 0);
 };
 
+window.__homeGetPositionDisplayEval = function(position) {
+  var p = position || {};
+  var directEval = Number(p.eval_amount || 0);
+  if (directEval > 0) return directEval;
+
+  var currentValue = Number(p.current_value_krw || 0);
+  if (currentValue > 0) return currentValue;
+
+  var qty = Number(p.qty || 0);
+  var currentPrice = Number(p.current_price || 0);
+  var runtimeEval = qty * currentPrice;
+  if (runtimeEval > 0) return runtimeEval;
+
+  var investAmount = Number(p.invest_amount || 0);
+  if (investAmount > 0) return investAmount;
+
+  var avgPrice = Number(p.avg_price || p.avg_buy_price || 0);
+  var avgEval = qty * avgPrice;
+  if (avgEval > 0) return avgEval;
+
+  return 0;
+};
+
+window.__homeShouldDisplayPosition = function(position) {
+  var p = position || {};
+  if (window.__homeGetPositionDisplayEval(p) > 0) return true;
+  return Number(p.qty || 0) > 0;
+};
+
+window.__homeGetAuthContext = function() {
+  return {
+    version: Number(window.__authClientStateVersion || 0),
+    identityKey: String(window.__authCurrentIdentityKey || '')
+  };
+};
+
+window.__homeIsStaleAuthContext = function(context) {
+  var current = window.__homeGetAuthContext();
+  return !context || current.version !== context.version || current.identityKey !== context.identityKey;
+};
+
+window.__homeResetDashboardState = function() {
+  window.__homeDashboardLastSnapshot = null;
+  window.__homeDashboardFetchInFlight = false;
+  window.__dashRecentLogsLastHTML = null;
+  window.__dashFilledLogsLastHTML = null;
+  window.__dashErrorLogsLastHTML = null;
+  window.__dashPositionsLastHTML = null;
+
+  if (window.__homeDashboardIntervalId) {
+    clearInterval(window.__homeDashboardIntervalId);
+    window.__homeDashboardIntervalId = null;
+  }
+
+  var emptyStrategies = { strategies: [] };
+  var emptyPositions = { positions: [] };
+  var emptyBalances = { no_key: true, krw_available: 0 };
+  var emptyLogs = { logs: [] };
+
+  if (typeof renderDashTop === 'function') renderDashTop({ krw_available: 0 }, emptyPositions, emptyStrategies, emptyStrategies, emptyStrategies);
+  if (typeof renderDashExchange === 'function') renderDashExchange(emptyBalances, emptyPositions, emptyBalances, emptyPositions);
+  if (typeof renderDashStrategies === 'function') renderDashStrategies(emptyStrategies, emptyStrategies, emptyStrategies);
+  if (typeof renderDashStatus === 'function') renderDashStatus(emptyStrategies, emptyStrategies, emptyStrategies);
+  if (typeof renderDashPositions === 'function') renderDashPositions(emptyPositions);
+  if (typeof renderDashRecentLogs === 'function') renderDashRecentLogs(emptyLogs);
+  if (typeof renderDashFilledLogs === 'function') renderDashFilledLogs(emptyLogs);
+  if (typeof renderDashErrorLogs === 'function') renderDashErrorLogs(emptyLogs);
+  if (typeof updateGlobalBanner === 'function') {
+    updateGlobalBanner('info', '로그인 필요', '로그인 후 현재 계정 기준 상태를 다시 불러옵니다.');
+  }
+  if (typeof window.__homeApplyBannerStrategyTarget === 'function') {
+    window.__homeApplyBannerStrategyTarget(null);
+  }
+
+  var statusText = document.getElementById('dash-status-text');
+  if (statusText) statusText.textContent = '로그인 후 상태를 확인합니다';
+  var overall = document.getElementById('dash-exchange-overall');
+  if (overall) {
+    overall.textContent = '로그인 필요';
+    overall.style.color = 'var(--text2)';
+  }
+  var lastSync = document.getElementById('dash-last-sync');
+  if (lastSync) lastSync.textContent = '-';
+  var updateTime = document.getElementById('dash-update-time');
+  if (updateTime) updateTime.textContent = '-';
+};
+
 window.__homeRuntimeRefreshGlobalTopStats = async function() {
   try {
+    if (!window._currentUser) {
+      window.__homeResetDashboardState();
+      return;
+    }
+    var authContext = window.__homeGetAuthContext();
     var results = await Promise.allSettled([
       authFetch('/api/balances'),
       authFetch('/api/positions'),
@@ -24,14 +116,16 @@ window.__homeRuntimeRefreshGlobalTopStats = async function() {
     var dcaData   = results[5].value && results[5].value.ok ? await results[5].value.json() : null;
     var rebalData = results[6].value && results[6].value.ok ? await results[6].value.json() : null;
 
+    if (window.__homeIsStaleAuthContext(authContext)) return;
+
     var upKrw = upBalData && upBalData.krw_available ? upBalData.krw_available : 0;
     var btKrw = btBalData && btBalData.krw_available ? btBalData.krw_available : 0;
 
     var upPositions = upPosData && upPosData.positions ? upPosData.positions : [];
     var btPositions = btPosData && btPosData.positions ? btPosData.positions : [];
 
-    var upEval = upPositions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
-    var btEval = btPositions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
+    var upEval = upPositions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
+    var btEval = btPositions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
 
     var totalKrw = Math.floor(upKrw + btKrw);
     var totalEval = Math.floor(upKrw + btKrw + upEval + btEval);
@@ -133,7 +227,6 @@ window.__homeResolveBannerStrategyTarget = function(gridData, dcaData, rebalData
   if (errorTarget) return errorTarget;
 
   for (var i = 0; i < groups.length; i += 1) {
-    if (groups[i].type === 'rebal') continue;
     for (var j = 0; j < groups[i].strategies.length; j += 1) {
       var strategy = groups[i].strategies[j];
       if (strategy.status === 'PAUSED') {
@@ -153,6 +246,7 @@ window.renderDashStatus = function(gridData, dcaData, rebalData) {
 
   var gridPaused  = gridData  && gridData.strategies  ? gridData.strategies.filter(function(s){ return s.status === 'PAUSED'; }).length : 0;
   var dcaPaused   = dcaData   && dcaData.strategies   ? dcaData.strategies.filter(function(s){ return s.status === 'PAUSED'; }).length : 0;
+  var rebalPaused = rebalData && rebalData.strategies ? rebalData.strategies.filter(function(s){ return s.status === 'PAUSED'; }).length : 0;
   var gridError   = gridData  && gridData.strategies  ? gridData.strategies.filter(function(s){ return s.status === 'ERROR'; }).length : 0;
   var dcaError    = dcaData   && dcaData.strategies   ? dcaData.strategies.filter(function(s){ return s.status === 'ERROR'; }).length : 0;
   var rebalError  = rebalData && rebalData.strategies ? rebalData.strategies.filter(function(s){ return s.status === 'ERROR'; }).length : 0;
@@ -163,6 +257,7 @@ window.renderDashStatus = function(gridData, dcaData, rebalData) {
   if (rebalError > 0) errors.push('리밸런싱 오류 ' + rebalError + '개');
   if (gridPaused > 0) warnings.push('일시정지된 그리드 ' + gridPaused + '개');
   if (dcaPaused  > 0) warnings.push('일시정지된 DCA '   + dcaPaused  + '개');
+  if (rebalPaused > 0) warnings.push('일시정지된 리밸런싱 ' + rebalPaused + '개');
 
   /* 배너 레벨: error > warning > normal */
   var bannerStatus, bannerLabel, bannerMsg;
@@ -383,7 +478,7 @@ window.renderHomePosTable = function(posData) {
   if (!el) return;
   var isMobile = window.__homeRuntimeIsMobileLayout();
   var positions = posData && posData.positions ? posData.positions.filter(function(p) {
-    return Number(p && p.eval_amount || 0) > 0;
+    return window.__homeShouldDisplayPosition(p);
   }) : [];
 
   if (positions.length === 0) {
@@ -412,7 +507,7 @@ window.renderHomePosTable = function(posData) {
     var exName = p.exchange==='bithumb'?'빗썸':'업비트';
     var pct = Number(p.pnl_pct || 0);
     var pnl = Number(p.pnl_amount || 0);
-    var evalAmount = Number(p.eval_amount || 0);
+    var evalAmount = window.__homeGetPositionDisplayEval(p);
     var pctColor = pct>0?'color:var(--color-normal)':pct<0?'color:var(--color-error)':'color:var(--text3)';
     var pctText = (pct>=0?'+':'') + pct.toFixed(2) + '%';
     var detailAction = "switchExchange('" + p.exchange + "')";
@@ -503,10 +598,10 @@ window.renderDashTop = function(balData, posData, gridData, dcaData, rebalData) 
   var krw = balData ? (balData.krw_available || 0) : 0;
   var positions = posData && posData.positions ? posData.positions : [];
   var visiblePositions = positions.filter(function(p) {
-    return Number(p && p.eval_amount || 0) > 0;
+    return window.__homeShouldDisplayPosition(p);
   });
-  var coinEval = positions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
-  var totalEval = balData && balData.total_eval_amount ? balData.total_eval_amount : (krw + coinEval);
+  var coinEval = positions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
+  var totalEval = krw + coinEval;
   var totalPnl = positions.reduce(function(s,p){ return s + (p.pnl_amount || 0); }, 0);
 
   var gridActive = countActiveStrategiesSafe(gridData);
@@ -571,7 +666,7 @@ window.renderDashExchange = function(upBalData, upPosData, btBalData, btPosData)
   function setText(id, val) { var el = document.getElementById(id); if (el && el.textContent !== val) el.textContent = val; }
   var upKrw = upBalData ? (upBalData.krw_available || 0) : 0;
   var upPos = upPosData && upPosData.positions ? upPosData.positions : [];
-  var upEval = upPos.reduce(function(s,p){return s+(p.eval_amount||0);},0);
+  var upEval = upPos.reduce(function(s,p){return s + window.__homeGetPositionDisplayEval(p);},0);
   var upInvest = upPos.reduce(function(s,p){return s+(p.invest_amount||0);},0);
   var upPnl = upEval - upInvest;
   var upPct = upInvest > 0 ? (upPnl/upInvest*100) : 0;
@@ -592,7 +687,7 @@ window.renderDashExchange = function(upBalData, upPosData, btBalData, btPosData)
   }
   var btKrw = btBalData ? (btBalData.krw_available || 0) : 0;
   var btPos = btPosData && btPosData.positions ? btPosData.positions : [];
-  var btEval = btPos.reduce(function(s,p){return s+(p.eval_amount||0);},0);
+  var btEval = btPos.reduce(function(s,p){return s + window.__homeGetPositionDisplayEval(p);},0);
   var btInvest = btPos.reduce(function(s,p){return s+(p.invest_amount||0);},0);
   var btPnl = btEval - btInvest;
   var btPct = btInvest > 0 ? (btPnl/btInvest*100) : 0;
@@ -941,6 +1036,11 @@ window.renderDashStrategies = function renderDashStrategies(gridData, dcaData, r
 
 window.__homeRuntimeFetchDashboard = async function() {
   try {
+    if (!window._currentUser) {
+      window.__homeResetDashboardState();
+      return;
+    }
+    var authContext = window.__homeGetAuthContext();
     var results = await Promise.allSettled([
       authFetch('/api/balances'),
       authFetch('/api/positions'),
@@ -961,6 +1061,8 @@ window.__homeRuntimeFetchDashboard = async function() {
     var rebalData = results[6].value && results[6].value.ok ? await results[6].value.json() : null;
     var logData   = results[7].value && results[7].value.ok ? await results[7].value.json() : null;
 
+    if (window.__homeIsStaleAuthContext(authContext)) return;
+
     var upKrw = (upBalData && upBalData.krw_available ? upBalData.krw_available : 0);
     var btKrw = (btBalData && btBalData.krw_available ? btBalData.krw_available : 0);
 
@@ -971,8 +1073,8 @@ window.__homeRuntimeFetchDashboard = async function() {
       p.exchange = 'bithumb'; return p;
     }) : [];
 
-    var upEval = upPositions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
-    var btEval = btPositions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
+    var upEval = upPositions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
+    var btEval = btPositions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
 
     var combinedBalData = {
       krw_available: upKrw + btKrw,
@@ -998,10 +1100,15 @@ window.__homeRuntimeFetchDashboard = async function() {
 };
 
 window.fetchDashboard = async function fetchDashboard() {
+  if (!window._currentUser) {
+    window.__homeResetDashboardState();
+    return;
+  }
   if (window.__homeDashboardFetchInFlight) return;
   window.__homeDashboardFetchInFlight = true;
 
   try {
+    var authContext = window.__homeGetAuthContext();
     var results = await Promise.allSettled([
       authFetch('/api/balances'),
       authFetch('/api/positions'),
@@ -1022,7 +1129,10 @@ window.fetchDashboard = async function fetchDashboard() {
     var rebalData = results[6].value && results[6].value.ok ? await results[6].value.json() : null;
     var logData   = results[7].value && results[7].value.ok ? await results[7].value.json() : null;
 
+    if (window.__homeIsStaleAuthContext(authContext)) return;
+
     var snapshot = JSON.stringify({
+      authIdentityKey: authContext.identityKey,
       upBalData: upBalData,
       upPosData: upPosData,
       btBalData: btBalData,
@@ -1045,8 +1155,8 @@ window.fetchDashboard = async function fetchDashboard() {
       p.exchange = 'bithumb'; return p;
     }) : [];
 
-    var upEval = upPositions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
-    var btEval = btPositions.reduce(function(s,p){ return s + (p.eval_amount || 0); }, 0);
+    var upEval = upPositions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
+    var btEval = btPositions.reduce(function(s,p){ return s + window.__homeGetPositionDisplayEval(p); }, 0);
 
     var combinedBalData = {
       krw_available: upKrw + btKrw,

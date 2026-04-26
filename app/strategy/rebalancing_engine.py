@@ -215,24 +215,170 @@ class RebalancingEngine:
             print(f"[REBAL] KRW 잔고 조회 실패: user_id={user_id} exchange={exchange} error={e}")
         return 0
 
+    @staticmethod
+    def _normalize_failure_message(error):
+        if error is None:
+            return ""
+        value = str(error).replace("\r", " ").replace("\n", " ").strip()
+        if not value:
+            return ""
+        return " ".join(value.split())[:240]
+
+    @classmethod
+    def _classify_submit_failure(cls, error, default="exchange_submit_failed"):
+        message = cls._normalize_failure_message(error)
+        if not message:
+            return default
+        lowered = f"{type(error).__name__} {message}".lower()
+        if (
+            "remainingreqparsingerror" in lowered
+            or "rate limit" in lowered
+            or "too many requests" in lowered
+            or "429" in lowered
+            or "요청 수 제한" in lowered
+            or "remaining-req" in lowered
+        ):
+            return "rate_limit"
+        if (
+            "minimum" in lowered
+            or "min total" in lowered
+            or "under_min" in lowered
+            or "insufficient" in lowered
+            or "invalid" in lowered
+            or "validation" in lowered
+            or "최소" in lowered
+        ):
+            return "validation"
+        if (
+            "reject" in lowered
+            or "denied" in lowered
+            or "forbidden" in lowered
+            or "not allowed" in lowered
+            or "거절" in lowered
+            or "거부" in lowered
+        ):
+            return "exchange_reject"
+        if (
+            "timeout" in lowered
+            or "connection" in lowered
+            or "request" in lowered
+            or "response" in lowered
+            or "응답" in lowered
+        ):
+            return "client_error"
+        return default
+
+    @staticmethod
+    def _activity_failure_label(failure_class):
+        labels = {
+            "rate_limit": "요청한도",
+            "validation": "주문검증",
+            "exchange_reject": "거래소거부",
+            "client_error": "응답오류",
+            "client_not_ready": "클라없음",
+            "exchange_submit_failed": "제출실패",
+        }
+        return labels.get(str(failure_class or "").strip(), "주문실패")
+
+    def _build_rebalance_failure_status_ko(self, side, failure_class, rebalancing_order_id):
+        side_ko = "매수" if side == "BUY" else "매도"
+        label = self._activity_failure_label(failure_class)
+        return f"{side_ko}실패({label})#{rebalancing_order_id}"[:30]
+
+    def _record_rebalance_order_failure(
+        self,
+        cur,
+        strategy_id,
+        user_id,
+        exchange,
+        symbol,
+        side,
+        price,
+        amount_krw,
+        qty,
+        rebalancing_order_id,
+        failure_class,
+        failure_message,
+    ):
+        normalized_failure_class = str(failure_class or "exchange_submit_failed").strip() or "exchange_submit_failed"
+        normalized_failure_message = self._normalize_failure_message(failure_message) or "empty exchange order id"
+        side_ko = "매수" if side == "BUY" else "매도"
+        print(
+            "[REBAL][ORDER_FAIL] "
+            f"rebalancing_order_id={rebalancing_order_id} "
+            f"strategy_id={strategy_id} user_id={user_id} "
+            f"exchange={exchange} symbol={symbol} side={side} "
+            f"amount_krw={float(amount_krw or 0):.2f} qty={float(qty or 0):.8f} "
+            f"failure_class={normalized_failure_class} "
+            f"failure_message={normalized_failure_message}"
+        )
+        try:
+            cur.execute("""
+                INSERT INTO activity_logs
+                (user_id, event_type, symbol, exchange, side, side_ko, status, status_ko,
+                 strategy_type, price, amount_krw, created_at)
+                VALUES (%s, 'order_fail', %s, %s, %s, %s, 'FAILED', %s,
+                        '리밸런싱', %s, %s, NOW())
+            """, (
+                user_id,
+                symbol,
+                exchange,
+                side,
+                side_ko,
+                self._build_rebalance_failure_status_ko(side, normalized_failure_class, rebalancing_order_id),
+                price,
+                amount_krw,
+            ))
+        except Exception as log_error:
+            print(
+                "[REBAL][ORDER_FAIL] activity_log 기록 실패: "
+                f"rebalancing_order_id={rebalancing_order_id} strategy_id={strategy_id} "
+                f"error={self._normalize_failure_message(log_error) or log_error}"
+            )
+
     def _submit_order(self, exchange, user_id, symbol, side, price, amount_krw, qty, is_dry_run):
         """매수/매도 주문 제출"""
         if DRY_RUN or is_dry_run:
             fake_id = f"REBAL-DRY-{side}-{symbol}-{int(now_utc().timestamp())}"
             print(f"[REBAL][DRY] {side}: {symbol} {price}원 금액={amount_krw}원")
-            return fake_id
+            return {
+                "order_id": fake_id,
+                "failure_class": None,
+                "failure_message": "",
+            }
         client = self._get_client(exchange, user_id)
         if not client:
             print(f"[REBAL] 주문 skip: user_id={user_id} exchange={exchange} side={side} symbol={symbol} client not ready")
-            return None
+            return {
+                "order_id": None,
+                "failure_class": "client_not_ready",
+                "failure_message": "client not ready",
+            }
         try:
             if side == "BUY":
-                return client.submit_buy_order(symbol, price, amount_krw)
+                order_id = client.submit_buy_order(symbol, price, amount_krw)
             else:
-                return client.submit_sell_order(symbol, price, qty)
+                order_id = client.submit_sell_order(symbol, price, qty)
+            if order_id:
+                return {
+                    "order_id": order_id,
+                    "failure_class": None,
+                    "failure_message": "",
+                }
+            client_error = getattr(client, "last_order_error", None)
+            failure_message = self._normalize_failure_message(client_error) or "empty exchange order id"
+            return {
+                "order_id": None,
+                "failure_class": self._classify_submit_failure(client_error, default="exchange_submit_failed"),
+                "failure_message": failure_message,
+            }
         except Exception as e:
             print(f"[REBAL] 주문 오류 user_id={user_id} exchange={exchange} {side} {symbol}: {e}")
-            return None
+            return {
+                "order_id": None,
+                "failure_class": self._classify_submit_failure(e),
+                "failure_message": self._normalize_failure_message(e) or "submit exception",
+            }
 
     def _log_portfolio_value_too_low_once(self, strat_id, exchange, total_value, krw_balance, coin_value):
         state_key = ("portfolio_value_too_low", str(exchange or "").lower())
@@ -445,10 +591,11 @@ class RebalancingEngine:
                 if sell_qty * item["price"] < effective_min_order_krw:
                     continue
 
-                order_id = self._submit_order(
+                submit_result = self._submit_order(
                     exchange, user_id, item["symbol"], "SELL",
                     item["price"], sell_value, sell_qty, is_dry_run
                 )
+                order_id = submit_result["order_id"]
                 status = "SUBMITTED" if order_id else "FAILED"
                 after_value = item["current_value"] - sell_value
                 after_pct = after_value / total_value * 100
@@ -457,10 +604,12 @@ class RebalancingEngine:
                     (strategy_id, user_id, symbol, side, price, amount_krw, qty,
                      before_pct, after_pct, target_pct, status, exchange_order_id)
                     VALUES (%s,%s,%s,'SELL',%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
                 """, (strat_id, user_id, item["symbol"],
                       item["price"], sell_value, sell_qty,
                       round(item["current_pct"], 2), round(after_pct, 2),
                       item["target_pct"], status, order_id))
+                rebalancing_order_id = cur.fetchone()[0]
                 if order_id:
                     submitted_orders += 1
                     if effective_daily_max_krw is not None:
@@ -469,6 +618,20 @@ class RebalancingEngine:
                           f"({item['current_pct']:.1f}% → {after_pct:.1f}%)")
                 else:
                     failed_orders += 1
+                    self._record_rebalance_order_failure(
+                        cur,
+                        strategy_id=strat_id,
+                        user_id=user_id,
+                        exchange=exchange,
+                        symbol=item["symbol"],
+                        side="SELL",
+                        price=item["price"],
+                        amount_krw=sell_value,
+                        qty=sell_qty,
+                        rebalancing_order_id=rebalancing_order_id,
+                        failure_class=submit_result["failure_class"],
+                        failure_message=submit_result["failure_message"],
+                    )
 
             conn.commit()
 
@@ -498,10 +661,12 @@ class RebalancingEngine:
             if buy_value < effective_min_order_krw:
                 continue
 
-            order_id = self._submit_order(
+            buy_qty = round(buy_value / item["price"], 8)
+            submit_result = self._submit_order(
                 exchange, user_id, item["symbol"], "BUY",
-                item["price"], buy_value, 0, is_dry_run
+                item["price"], buy_value, buy_qty, is_dry_run
             )
+            order_id = submit_result["order_id"]
             status = "SUBMITTED" if order_id else "FAILED"
             after_value = item["current_value"] + buy_value
             after_pct = after_value / total_value * 100
@@ -510,10 +675,12 @@ class RebalancingEngine:
                 (strategy_id, user_id, symbol, side, price, amount_krw, qty,
                  before_pct, after_pct, target_pct, status, exchange_order_id)
                 VALUES (%s,%s,%s,'BUY',%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
             """, (strat_id, user_id, item["symbol"],
-                  item["price"], buy_value, round(buy_value/item["price"], 8),
+                  item["price"], buy_value, buy_qty,
                   round(item["current_pct"], 2), round(after_pct, 2),
                   item["target_pct"], status, order_id))
+            rebalancing_order_id = cur.fetchone()[0]
             if order_id:
                 submitted_orders += 1
                 krw_balance -= buy_value
@@ -523,6 +690,20 @@ class RebalancingEngine:
                       f"({item['current_pct']:.1f}% → {after_pct:.1f}%)")
             else:
                 failed_orders += 1
+                self._record_rebalance_order_failure(
+                    cur,
+                    strategy_id=strat_id,
+                    user_id=user_id,
+                    exchange=exchange,
+                    symbol=item["symbol"],
+                    side="BUY",
+                    price=item["price"],
+                    amount_krw=buy_value,
+                    qty=buy_qty,
+                    rebalancing_order_id=rebalancing_order_id,
+                    failure_class=submit_result["failure_class"],
+                    failure_message=submit_result["failure_message"],
+                )
 
         # 전략 상태 업데이트
         cur.execute("""

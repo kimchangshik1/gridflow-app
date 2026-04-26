@@ -7,10 +7,14 @@ def state_change_headers(**extra_headers):
     return headers
 
 
-def login(client, username: str, password: str):
+def login(client, username: str, password: str, *, remember_me: bool = False):
     return client.post(
         "/auth/login",
-        json={"username": username, "password": password},
+        json={
+            "username": username,
+            "password": password,
+            "remember_me": remember_me,
+        },
         headers=STATE_CHANGE_HEADERS,
     )
 

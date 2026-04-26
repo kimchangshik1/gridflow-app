@@ -1,0 +1,180 @@
+MAJOR2_CLOSEOUT
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Scope: major section 2 closeout for handoff to the next clean-VM operator
+
+1. Completed Scope
+
+- 2-1 environment contract completed
+  - runtime topology fixed
+  - env/json contract fixed
+  - bootstrap command baseline fixed
+  - source docs:
+    - DEPLOYMENT_BASELINE.txt
+    - ENV_SCHEMA.txt
+    - BOOTSTRAP_RUNBOOK.txt
+
+- 2-2 DB migration baseline completed
+  - live public schema inventory fixed at 19 tables
+  - Alembic baseline introduced from live DB, not ORM-only metadata
+  - blank DB baseline apply proved on temp DB
+  - source docs:
+    - DB_SCHEMA_INVENTORY.txt
+    - DB_BOOTSTRAP.txt
+
+- 2-3 clean install preparation completed for current-host-safe scope
+  - install payload templates fixed
+  - config payload templates fixed
+  - render/apply/permissions scripts completed
+  - password-hash generator completed
+  - local isolated pipeline proofs completed under /tmp
+  - activation dry-run and smoke dry-run completed
+  - source deploy / runtime prepare / preflight completed
+  - clean VM execution wrappers and evidence wrapper completed
+  - non-clean-host execute guard completed
+
+- 2-4 restore verification completed
+  - one real dump restore-verify succeeded on temp DB
+  - post-restore DB smoke, main app isolated smoke, and monitor isolated smoke succeeded
+  - source doc:
+    - RESTORE_PROOF.txt
+
+2. Key Files Created
+
+- Baseline / contracts
+  - DEPLOYMENT_BASELINE.txt
+  - ENV_SCHEMA.txt
+  - BOOTSTRAP_RUNBOOK.txt
+  - DB_SCHEMA_INVENTORY.txt
+  - DB_BOOTSTRAP.txt
+
+- Install templates / maps
+  - INSTALL_TEMPLATE_MAP.txt
+  - CONFIG_TEMPLATE_MAP.txt
+  - ops/templates/gridflow-app.service
+  - ops/templates/upbit-bot.service
+  - ops/templates/orderlens-ops.service
+  - ops/templates/nginx.gridflow.conf
+  - ops/templates/gridflow-pg-backup.service
+  - ops/templates/gridflow-pg-backup.timer
+  - ops/templates/gridflow-health-alert.service
+  - ops/templates/gridflow-health-alert.timer
+  - ops/templates/gridflow.logrotate
+  - ops/templates/gridflow.env.template
+  - ops/templates/monitor_config.json.template
+  - ops/templates/monitor_auth.json.template
+
+- Install tooling
+  - ops/render_install_payload.py
+  - ops/apply_install_payload.py
+  - ops/install_permissions.json
+  - ops/apply_install_permissions.py
+  - ops/generate_monitor_password_hash.py
+  - ops/pre_install_preflight.py
+  - ops/deploy_source_tree.sh
+  - ops/prepare_app_runtime.sh
+  - ops/prepare_clean_vm_db.sh
+  - ops/clean_install_first_execute.sh
+  - ops/run_clean_vm_live_install.sh
+  - ops/capture_clean_vm_first_execute.sh
+  - ops/post_install_activate.sh
+  - ops/post_install_smoke_check.sh
+
+3. Proofs Completed On Local / Isolated Paths
+
+- LOCAL_INSTALL_PIPELINE_PROOF.txt
+  - render -> apply -> permissions proof for app/bot/monitor payload
+
+- LOCAL_INSTALL_PIPELINE_PROOF_FULL.txt
+  - render -> apply -> permissions proof including backup/health-alert/logrotate payload
+
+- DB_BOOTSTRAP.txt
+  - blank temp DB -> Alembic baseline -> 19 app tables proof
+
+- RESTORE_PROOF.txt
+  - one real backup dump restored to temp DB
+  - DB-level smoke passed
+  - main app isolated smoke passed
+  - monitor isolated smoke passed
+
+4. Last Remaining Blocker
+
+- actual clean VM first execute proof
+  - not completed
+  - only remaining missing proof for major section 2
+
+5. Why Current Host Must Not Be Used
+
+- current host already has:
+  - /etc/gridflow
+  - /etc/systemd/system/gridflow-app.service
+  - /etc/systemd/system/upbit-bot.service
+  - /etc/systemd/system/orderlens-ops.service
+  - /etc/nginx/sites-available/gridflow
+  - existing app path /home/ubuntu/upbit_bot
+- this invalidates clean-VM first-execute evidence
+- execute guard was added so non-clean hosts block real `--execute` by default
+
+6. Minimum Inputs Required On Clean VM
+
+- source repo path
+- one real values JSON based on `ops/templates/install_values.example.json`
+- target `APP_DIR`
+- target `DB_URL`
+- monitor password bcrypt hash
+- target users/groups for app/bot/monitor
+- TLS/nginx values:
+  - SERVER_NAME
+  - SSL_CERT_PATH
+  - SSL_KEY_PATH
+- PostgreSQL role/database connectivity ready
+
+7. Actual Command Order On Clean VM
+
+1. Prepare real values file from `ops/templates/install_values.example.json`
+2. Optional dry-run:
+```bash
+bash ops/run_clean_vm_live_install.sh \
+  --values /path/to/install_values.live.json \
+  --target-app-dir /opt/gridflow/app \
+  --source-dir /path/to/source/repo \
+  --target-root /
+```
+3. Real install:
+```bash
+bash ops/run_clean_vm_live_install.sh \
+  --values /path/to/install_values.live.json \
+  --target-app-dir /opt/gridflow/app \
+  --source-dir /path/to/source/repo \
+  --target-root / \
+  --allow-live-root \
+  --execute
+```
+4. Real evidence capture:
+```bash
+bash ops/capture_clean_vm_first_execute.sh \
+  --values /path/to/install_values.live.json \
+  --target-app-dir /opt/gridflow/app \
+  --source-dir /path/to/source/repo \
+  --target-root / \
+  --allow-live-root \
+  --evidence-dir /var/tmp/gridflow_first_execute_evidence \
+  --execute
+```
+
+8. Judgment
+
+- Current host:
+  - hold
+  - major section 2 is complete except for the one forbidden clean-VM proof
+
+- If clean VM is secured:
+  - pass-ready
+  - all required wrappers, guards, templates, and runbooks already exist for one real final execution
+
+9. Remaining Risks
+
+- final clean VM proof still depends on an actually clean host
+- fresh-server usability still needs admin/user bootstrap policy after blank DB migration
+- restore proof covers one real dump, not every retained backup file
+- Alembic baseline follows live DB, while ORM metadata still differs from that live schema

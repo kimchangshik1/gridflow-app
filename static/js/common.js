@@ -157,11 +157,9 @@ function applyAdminTabVisibility() {
   if (!adminTab) return
   if (_currentUser && _currentUser.is_admin) {
     adminTab.style.display = ''
-  } else if (_currentUser) {
-    // 비관리자 로그인 시 DOM에서 완전 제거
-    if (adminTab.parentNode) adminTab.parentNode.removeChild(adminTab)
+  } else {
+    adminTab.style.display = 'none'
   }
-  // 미로그인 상태: display:none 유지 (초기값)
 }
 
 if (typeof window.checkAuth === 'function' && !window.__authBridgeWrappedCheckAuth) {

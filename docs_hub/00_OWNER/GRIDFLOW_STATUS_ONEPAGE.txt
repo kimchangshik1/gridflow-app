@@ -1,0 +1,16 @@
+GRIDFLOW STATUS ONEPAGE
+
+- Buyer-facing disposition: READY WITH KNOWN LIMITATIONS
+- Internal release gate snapshot: HOLD
+- Frozen outbound package: release/gridflow_buyer_final_freeze_20260425.tar.gz
+- Checksum file: release/SHA256SUMS.txt
+- Freeze manifest: release/GRIDFLOW_FINAL_FREEZE_MANIFEST.txt
+- Handoff dry run note: release/HANDOFF_DRY_RUN.md
+- Default deliverable: clean delivery tarball only
+- Request-only material: delivery/evidence/diligence_only/
+- Non-deliverable: full history repo
+- Latest noted integration result: 13 passed in 22.82s
+- Main open boundaries:
+  - monitor deployed provenance/session durability/multi-instance claims
+  - rebalancing SELL/BOTH/fill-complete/final reconciliation
+  - emergency stop narrative vs backend contract wording

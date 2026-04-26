@@ -1,5 +1,23 @@
 'use strict';
 
+function getAdminAuthContext() {
+  if (typeof window.__authGetClientContext === 'function') {
+    return window.__authGetClientContext();
+  }
+  return {
+    version: Number(window.__authClientStateVersion || 0),
+    identityKey: String(window.__authCurrentIdentityKey || '')
+  };
+}
+
+function isAdminAuthContextStale(context) {
+  if (typeof window.__authIsStaleClientContext === 'function') {
+    return window.__authIsStaleClientContext(context);
+  }
+  var current = getAdminAuthContext();
+  return !context || current.version !== context.version || current.identityKey !== context.identityKey;
+}
+
 window.__adminRuntimeSwitchAdmin = function() {
   if (!_currentUser || !_currentUser.is_admin) return;
   hideAllMainPanels();
@@ -110,13 +128,16 @@ window.deleteUser = async function deleteUser(userId, username) {
 
 window.__adminRuntimeFetchUsers = async function() {
   if (!_currentUser || !_currentUser.is_admin) return;
+  const authContext = getAdminAuthContext();
   const r = await authFetch('/auth/users');
-  if (!r) return;
+  if (!r || !r.ok || isAdminAuthContextStale(authContext) || !_currentUser || !_currentUser.is_admin) return;
   const d = await r.json();
+  if (isAdminAuthContextStale(authContext) || !_currentUser || !_currentUser.is_admin) return;
   const tbody = document.getElementById('admin-user-table-body');
   if (!tbody) return;
 
   const users = d.users || [];
+  window._adminUserData = users;
   const now = Date.now();
   const h24 = 24 * 60 * 60 * 1000;
   const statTotal = users.length;

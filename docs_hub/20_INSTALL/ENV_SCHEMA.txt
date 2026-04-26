@@ -1,0 +1,213 @@
+ENV_SCHEMA
+Measured at: 2026-04-20 UTC
+Project root: /home/ubuntu/upbit_bot
+Scope: env/json contract from actual code and ops file references only
+Value policy: keys/schema only; no secret values copied
+
+1. Source Files Inspected
+
+- /home/ubuntu/upbit_bot/app/core/config.py
+- /home/ubuntu/upbit_bot/app/monitor/auth.py
+- /home/ubuntu/upbit_bot/app/monitor/repo.py
+- /home/ubuntu/upbit_bot/app/monitor/tier.py
+- /home/ubuntu/upbit_bot/app/db/database.py
+- /home/ubuntu/upbit_bot/app/main.py
+- /home/ubuntu/upbit_bot/app/bot.py
+- /home/ubuntu/upbit_bot/app/monitor/product_app.py
+- /home/ubuntu/upbit_bot/ops/gridflow_pg_backup.sh
+- /home/ubuntu/upbit_bot/ops/gridflow_pg_restore_verify.sh
+- /home/ubuntu/upbit_bot/ops/gridflow_health_alert.sh
+- /etc/systemd/system/gridflow-app.service
+- /etc/systemd/system/upbit-bot.service
+- /etc/systemd/system/orderlens-ops.service
+- /etc/gridflow/gridflow.env
+- /etc/gridflow/monitor_config.json
+- /etc/gridflow/monitor_auth.json
+
+2. Current /etc/gridflow/gridflow.env Keys Observed
+
+- DRY_RUN
+- DB_URL
+- JWT_SECRET
+- GRIDFLOW_ALERT_WEBHOOK_URL
+
+3. Common Env Key Table
+
+Format:
+key | location | used by service | reference | required/optional | secret | empty or missing impact | present now in /etc/gridflow/gridflow.env
+
+- DB_URL | env | gridflow-app, upbit-bot, orderlens-ops, backup | app/core/config.py module load; app/db/database.py engine=create_engine(DB_URL); ops/gridflow_pg_backup.sh DB_URL check/pg_dump | required | yes | app/core/config.py raises RuntimeError if unset; web/bot/monitor fail to boot DB layer; backup script exits 1 | yes
+- DRY_RUN | env | gridflow-app, upbit-bot | app/core/config.py DRY_RUN; app/main.py lifespan print; app/bot.py imports keys and enables/disables EmergencyStop path; exchange clients read DRY_RUN via app/core/config.py | optional | no | defaults to true; runtime shifts to dry-run behavior where supported | yes
+- UPBIT_ACCESS_KEY | env | upbit-bot | app/core/config.py; app/bot.py main() emergency stop enable condition; UpbitClient fallback key source via app/core/config.py | optional | yes | empty disables shared EmergencyStop in app/bot.py; client fallback credentials absent | no
+- UPBIT_SECRET_KEY | env | upbit-bot | app/core/config.py; app/bot.py main() emergency stop enable condition; UpbitClient fallback secret source via app/core/config.py | optional | yes | empty disables shared EmergencyStop in app/bot.py; client fallback credentials absent | no
+- BITHUMB_ACCESS_KEY | env | gridflow-app, upbit-bot | app/core/config.py; BithumbClient fallback key source via app/core/config.py | optional | yes | empty leaves no global fallback credential for BithumbClient; per-user or monitor config may still supply credentials elsewhere | no
+- BITHUMB_SECRET_KEY | env | gridflow-app, upbit-bot | app/core/config.py; BithumbClient fallback secret source via app/core/config.py | optional | yes | empty leaves no global fallback secret for BithumbClient; per-user or monitor config may still supply credentials elsewhere | no
+- MAX_ACTIVE_ORDERS_PER_SYMBOL | env | gridflow-app, upbit-bot | app/core/config.py constant load; used downstream by order manager/gateway modules via import | optional | no | defaults to 10 | no
+- MAX_PLANNED_ORDERS_PER_SYMBOL | env | gridflow-app, upbit-bot | app/core/config.py constant load; used downstream by order manager module via import | optional | no | defaults to 50 | no
+- GRIDFLOW_ENV_FILE | env / systemd Environment= | gridflow-app, upbit-bot, orderlens-ops, backup, health-alert | app/core/config.py ENV_FILE; ops/gridflow_pg_backup.sh ENV_FILE; ops/gridflow_health_alert.sh ENV_FILE; all three systemd units set Environment=GRIDFLOW_ENV_FILE=/etc/gridflow/gridflow.env | optional override, effectively required in systemd install contract | no | if unset, code/scripts fall back to /etc/gridflow/gridflow.env; systemd currently pins it explicitly | no, injected by unit not by env file
+- MONITOR_CONFIG_PATH | env / systemd Environment= | orderlens-ops | app/monitor/auth.py _CONFIG_PATH; app/monitor/repo.py _CONFIG_PATH; app/monitor/tier.py _CONFIG_PATH; /etc/systemd/system/orderlens-ops.service Environment=MONITOR_CONFIG_PATH=/etc/gridflow/monitor_config.json | optional override, effectively required in systemd install contract | no | defaults to /etc/gridflow/monitor_config.json; monitor reads/writes default path | no, injected by unit not by env file
+- MONITOR_AUTH_PATH | env / systemd Environment= | orderlens-ops | app/monitor/auth.py _AUTH_PATH; /etc/systemd/system/orderlens-ops.service Environment=MONITOR_AUTH_PATH=/etc/gridflow/monitor_auth.json | optional override, effectively required in systemd install contract | no | defaults to /etc/gridflow/monitor_auth.json; monitor password file reads/writes default path | no, injected by unit not by env file
+- GRIDFLOW_BACKUP_DIR | env | backup, restore-verify | ops/gridflow_pg_backup.sh BACKUP_DIR; ops/gridflow_pg_restore_verify.sh BACKUP_DIR | optional | no | defaults to /var/backups/gridflow | no
+- GRIDFLOW_BACKUP_RETENTION_DAYS | env | backup | ops/gridflow_pg_backup.sh RETENTION_DAYS | optional | no | defaults to 14-day retention | no
+- GRIDFLOW_BACKUP_LOG | env | backup | ops/gridflow_pg_backup.sh LOG_FILE | optional | no | defaults to /var/log/gridflow_backup.log | no
+- GRIDFLOW_RESTORE_VERIFY_LOG | env | restore-verify | ops/gridflow_pg_restore_verify.sh LOG_FILE | optional | no | defaults to /var/log/gridflow_restore_verify.log | no
+- GRIDFLOW_ALERT_ENV_FILE | env | health-alert | ops/gridflow_health_alert.sh ENV_FILE | optional | no | falls back to GRIDFLOW_ENV_FILE, then /etc/gridflow/gridflow.env | no
+- GRIDFLOW_ALERT_LOG | env | health-alert | ops/gridflow_health_alert.sh LOG_FILE | optional | no | defaults to /var/log/gridflow_alert.log | no
+- GRIDFLOW_ALERT_STATE_DIR | env | health-alert | ops/gridflow_health_alert.sh STATE_DIR | optional | no | defaults to /var/lib/gridflow | no
+- GRIDFLOW_ALERT_PUSH_COOLDOWN_SECONDS | env | health-alert | ops/gridflow_health_alert.sh PUSH_COOLDOWN_SECONDS | optional | no | defaults to 1800 seconds | no
+- GRIDFLOW_ALERT_WEBHOOK_URL | env | health-alert | ops/gridflow_health_alert.sh WEBHOOK_URL resolution and send_webhook_alert() | optional | yes | no push alert is sent; script still performs health check and local logging/state updates | yes
+- DISCORD_WEBHOOK_URL | env | health-alert | ops/gridflow_health_alert.sh WEBHOOK_URL fallback | optional | yes | if also no GRIDFLOW_ALERT_WEBHOOK_URL, push alert delivery is skipped | no
+- JWT_SECRET | env | unclear in inspected scope | present in /etc/gridflow/gridflow.env only; no reference found in app/ or ops/ search during this turn | unclear | yes | effect not provable from inspected references | yes
+
+4. Service-Specific Key Groups
+
+- gridflow-app
+  Required:
+  DB_URL
+  Optional:
+  DRY_RUN
+  BITHUMB_ACCESS_KEY
+  BITHUMB_SECRET_KEY
+  MAX_ACTIVE_ORDERS_PER_SYMBOL
+  MAX_PLANNED_ORDERS_PER_SYMBOL
+  GRIDFLOW_ENV_FILE
+  Notes:
+  systemd injects EnvironmentFile=/etc/gridflow/gridflow.env and GRIDFLOW_ENV_FILE=/etc/gridflow/gridflow.env.
+
+- upbit-bot
+  Required:
+  DB_URL
+  Optional:
+  DRY_RUN
+  UPBIT_ACCESS_KEY
+  UPBIT_SECRET_KEY
+  BITHUMB_ACCESS_KEY
+  BITHUMB_SECRET_KEY
+  MAX_ACTIVE_ORDERS_PER_SYMBOL
+  MAX_PLANNED_ORDERS_PER_SYMBOL
+  GRIDFLOW_ENV_FILE
+  Notes:
+  missing UPBIT_ACCESS_KEY or UPBIT_SECRET_KEY only disables shared EmergencyStop path in app/bot.py; bot still proceeds if DB is reachable.
+
+- orderlens-ops
+  Required:
+  DB_URL
+  monitor_config.json keys exchange, api_key, api_secret
+  monitor_auth.json key password_hash for password verification flow
+  Optional:
+  MONITOR_CONFIG_PATH
+  MONITOR_AUTH_PATH
+  GRIDFLOW_ENV_FILE
+  monitor_config.json key tier
+  Notes:
+  systemd injects MONITOR_CONFIG_PATH and MONITOR_AUTH_PATH explicitly.
+  app/monitor/product_app.py requires DB connectivity.
+  app/monitor/auth.py treats missing or empty exchange/api_key/api_secret as unsaved monitor config.
+  app/monitor/auth.py treats missing password_hash as password verification failure.
+
+- backup / restore / health-alert
+  Backup required:
+  DB_URL
+  Optional:
+  GRIDFLOW_ENV_FILE
+  GRIDFLOW_BACKUP_DIR
+  GRIDFLOW_BACKUP_RETENTION_DAYS
+  GRIDFLOW_BACKUP_LOG
+  Restore-verify required:
+  none from env proven in script body
+  Optional:
+  GRIDFLOW_BACKUP_DIR
+  GRIDFLOW_RESTORE_VERIFY_LOG
+  Health-alert required:
+  none
+  Optional:
+  GRIDFLOW_ALERT_ENV_FILE
+  GRIDFLOW_ENV_FILE
+  GRIDFLOW_ALERT_LOG
+  GRIDFLOW_ALERT_STATE_DIR
+  GRIDFLOW_ALERT_PUSH_COOLDOWN_SECONDS
+  GRIDFLOW_ALERT_WEBHOOK_URL
+  DISCORD_WEBHOOK_URL
+  Notes:
+  health-alert sends webhook only when a webhook key resolves non-empty.
+  restore-verify script does not source /etc/gridflow/gridflow.env in the inspected code.
+
+5. monitor_config.json Schema
+
+Location:
+- default path: /etc/gridflow/monitor_config.json
+- override path env: MONITOR_CONFIG_PATH
+
+Observed keys now:
+- exchange
+- api_key
+- api_secret
+- tier
+
+Schema:
+- exchange | json | orderlens-ops | app/monitor/auth.py has_saved_monitor_config(); app/monitor/repo.py _make_client() | required for configured monitor state | no | empty makes monitor config treated as unsaved; /monitor redirects to /monitor/setup
+- api_key | json | orderlens-ops | app/monitor/auth.py has_saved_monitor_config(); app/monitor/repo.py _make_client() | required for configured monitor state | yes | empty makes monitor config treated as unsaved; exchange client cannot be constructed with configured key
+- api_secret | json | orderlens-ops | app/monitor/auth.py has_saved_monitor_config(); app/monitor/repo.py _make_client() | required for configured monitor state | yes | empty makes monitor config treated as unsaved; exchange client cannot be constructed with configured secret
+- tier | json | orderlens-ops | app/monitor/tier.py get_current_tier() | optional | no | missing/invalid value falls back to lite
+
+Schema notes:
+- app/monitor/auth.py _MONITOR_CONFIG_FIELDS only guarantees exchange/api_key/api_secret when creating an empty config payload.
+- tier is a real read key but not part of _MONITOR_CONFIG_FIELDS; it may be absent from newly cleared config.
+- Allowed tier values proven by app/monitor/tier.py: lite, pro, signature.
+
+6. monitor_auth.json Schema
+
+Location:
+- default path: /etc/gridflow/monitor_auth.json
+- override path env: MONITOR_AUTH_PATH
+
+Observed key now:
+- password_hash
+
+Schema:
+- password_hash | json | orderlens-ops | app/monitor/auth.py set_monitor_password(); verify_monitor_password() | required for successful password verification flow | yes | missing/empty causes verify_monitor_password() to return False
+
+Schema notes:
+- has_monitor_password() checks file existence only, not non-empty password_hash.
+
+7. Minimum Required Settings At Install
+
+- /etc/gridflow/gridflow.env
+  DB_URL
+- /etc/gridflow/monitor_config.json
+  exchange
+  api_key
+  api_secret
+- /etc/gridflow/monitor_auth.json
+  password_hash
+- systemd unit environment contract
+  GRIDFLOW_ENV_FILE for all three app services
+  MONITOR_CONFIG_PATH and MONITOR_AUTH_PATH for orderlens-ops
+
+8. Optional Settings For Operations
+
+- DRY_RUN
+- UPBIT_ACCESS_KEY
+- UPBIT_SECRET_KEY
+- BITHUMB_ACCESS_KEY
+- BITHUMB_SECRET_KEY
+- MAX_ACTIVE_ORDERS_PER_SYMBOL
+- MAX_PLANNED_ORDERS_PER_SYMBOL
+- GRIDFLOW_BACKUP_DIR
+- GRIDFLOW_BACKUP_RETENTION_DAYS
+- GRIDFLOW_BACKUP_LOG
+- GRIDFLOW_RESTORE_VERIFY_LOG
+- GRIDFLOW_ALERT_ENV_FILE
+- GRIDFLOW_ALERT_LOG
+- GRIDFLOW_ALERT_STATE_DIR
+- GRIDFLOW_ALERT_PUSH_COOLDOWN_SECONDS
+- GRIDFLOW_ALERT_WEBHOOK_URL
+- DISCORD_WEBHOOK_URL
+- monitor_config.json tier
+
+9. Unclear Or Needs Confirmation
+
+- JWT_SECRET is present in /etc/gridflow/gridflow.env but no reference was found in inspected app/ops files during this turn; current runtime necessity is unproven.
+- restore-verify uses sudo-created PostgreSQL objects and shell arguments, but no env-driven DB connection string is referenced in the inspected script body; operational prerequisites beyond file/log paths remain outside this env contract.
+- BITHUMB_ACCESS_KEY and BITHUMB_SECRET_KEY are global fallback env keys in app/core/config.py, but actual primary runtime credentials may also come from DB-backed per-user bot config or monitor_config.json; install-time necessity therefore depends on deployment mode.
+- UPBIT_ACCESS_KEY and UPBIT_SECRET_KEY are not required for bot startup in app/bot.py, only for shared EmergencyStop enablement.

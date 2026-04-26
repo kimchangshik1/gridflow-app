@@ -1,7 +1,11 @@
+import json
+import math
 import pyupbit
+import re
+import requests
 import time
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 from app.core.config import UPBIT_ACCESS_KEY, UPBIT_SECRET_KEY, DRY_RUN
 
 
@@ -15,6 +19,145 @@ class UpbitClient:
         sk = secret_key or UPBIT_SECRET_KEY
         self._upbit = pyupbit.Upbit(ak, sk)
         self._symbols: list[str] = []
+        self.last_balance_error: Optional[str] = None
+        self._rate_limit_backoff_until = 0.0
+        self._last_remaining_req_warning_at = 0.0
+        self._last_remaining_req_warning_value = ""
+        self._last_backoff_log_at = 0.0
+
+    def _warn_remaining_req_header(self, raw_header: Optional[str], reason: str) -> None:
+        raw_value = (raw_header or "").strip() or "<missing>"
+        now = time.monotonic()
+        if raw_value == self._last_remaining_req_warning_value and now - self._last_remaining_req_warning_at < 60:
+            return
+        self._last_remaining_req_warning_value = raw_value
+        self._last_remaining_req_warning_at = now
+        preview = raw_value if len(raw_value) <= 160 else f"{raw_value[:157]}..."
+        print(f"[WARN] Remaining-Req 헤더 파싱 건너뜀: {reason} raw={preview}")
+
+    def _parse_remaining_req_header(self, raw_header: Optional[str]) -> Optional[dict[str, Any]]:
+        if raw_header is None:
+            self._warn_remaining_req_header(raw_header, "header missing")
+            return None
+
+        header = raw_header.strip()
+        if not header:
+            self._warn_remaining_req_header(raw_header, "header empty")
+            return None
+
+        tokens = {}
+        for key, value in re.findall(r"([A-Za-z][A-Za-z_-]*)\s*=\s*([^;,\s]+)", header):
+            tokens[key.lower()] = value
+
+        if not tokens:
+            self._warn_remaining_req_header(raw_header, "no key=value tokens")
+            return None
+
+        parsed: dict[str, Any] = {}
+        group = tokens.get("group")
+        if group:
+            parsed["group"] = group
+
+        for key in ("min", "sec"):
+            raw_value = tokens.get(key)
+            if raw_value is None:
+                continue
+            try:
+                parsed[key] = int(raw_value)
+            except (TypeError, ValueError):
+                self._warn_remaining_req_header(raw_header, f"{key} is not int: {raw_value}")
+                return None
+
+        if not parsed:
+            self._warn_remaining_req_header(raw_header, "no usable fields")
+            return None
+
+        return parsed
+
+    def _log_backoff(self, context: str, seconds: float, reason: str) -> None:
+        now = time.monotonic()
+        if seconds <= 0 or now - self._last_backoff_log_at < 5:
+            return
+        self._last_backoff_log_at = now
+        print(f"[WARN] Upbit rate-limit backoff 적용 {context}: {seconds:.2f}s ({reason})")
+
+    def _extend_rate_limit_backoff(self, seconds: float, context: str, reason: str) -> None:
+        sleep_for = max(0.0, min(seconds, 2.0))
+        if sleep_for <= 0:
+            return
+        until = time.monotonic() + sleep_for
+        if until > self._rate_limit_backoff_until:
+            self._rate_limit_backoff_until = until
+        self._log_backoff(context, sleep_for, reason)
+
+    def _wait_for_rate_limit_backoff(self, context: str) -> None:
+        remaining = self._rate_limit_backoff_until - time.monotonic()
+        if remaining > 0:
+            self._log_backoff(context, remaining, "pre-request wait")
+            time.sleep(remaining)
+
+    def _observe_remaining_req(self, raw_header: Optional[str], context: str) -> None:
+        limit = self._parse_remaining_req_header(raw_header)
+        if not limit:
+            return
+        sec = limit.get("sec")
+        if isinstance(sec, int) and sec <= 0:
+            self._extend_rate_limit_backoff(1.05, context, "Remaining-Req sec=0")
+
+    def _is_rate_limit_response(self, status_code: int, result: Any, response_text: str) -> bool:
+        if status_code == 429:
+            return True
+
+        message = response_text or ""
+        if isinstance(result, dict):
+            error = result.get("error")
+            if isinstance(error, dict):
+                message = f"{error.get('name', '')} {error.get('message', '')}".strip()
+            elif result:
+                message = str(result)
+
+        lowered = message.lower()
+        return (
+            "too many api requests" in lowered
+            or "rate limit" in lowered
+            or "요청 수 제한" in message
+            or "429" in lowered
+        )
+
+    def _request_private_json(
+        self,
+        method: str,
+        url: str,
+        data: Optional[dict[str, Any]] = None,
+        *,
+        context: str,
+    ) -> tuple[Optional[requests.Response], Any, str]:
+        self._wait_for_rate_limit_backoff(context)
+
+        payload = data or None
+        headers = self._upbit._request_headers(payload)
+        headers["Accept"] = "application/json"
+
+        if method == "GET":
+            response = requests.get(url, headers=headers, params=payload, timeout=10)
+        elif method == "POST":
+            headers["Content-Type"] = "application/json"
+            response = requests.post(url, headers=headers, data=json.dumps(payload or {}), timeout=10)
+        else:
+            raise ValueError(f"unsupported method: {method}")
+
+        response_text = response.text[:200] if response.text else ""
+        self._observe_remaining_req(response.headers.get("Remaining-Req"), context)
+
+        try:
+            result = response.json()
+        except ValueError:
+            result = None
+
+        if self._is_rate_limit_response(response.status_code, result, response_text):
+            self._extend_rate_limit_backoff(1.05, context, "HTTP 429 or rate-limit response")
+
+        return response, result, response_text
 
     def load_symbols(self) -> list[str]:
         try:
@@ -31,15 +174,38 @@ class UpbitClient:
         return self._symbols
 
     def get_balances(self) -> dict:
+        self.last_balance_error = None
         try:
-            balances = self._upbit.get_balances()
+            response, balances, response_text = self._request_private_json(
+                "GET",
+                "https://api.upbit.com/v1/accounts",
+                context="잔고 조회",
+            )
+            if response is None:
+                self.last_balance_error = "empty response"
+                print("[ERROR] 잔고 조회 실패: empty response")
+                return None
+            if self._is_rate_limit_response(response.status_code, balances, response_text):
+                self.last_balance_error = "API rate limit"
+                print("[ERROR] 잔고 조회 실패: API rate limit")
+                return None
+            if response.status_code >= 400:
+                self.last_balance_error = str(balances or response_text)
+                print(f"[ERROR] 잔고 조회 실패: HTTP {response.status_code} {balances or response_text}")
+                return None
             if not balances:
                 return {}
             if isinstance(balances, dict) and balances.get("error"):
+                self.last_balance_error = str(balances["error"])
                 print(f"[ERROR] 잔고 조회 실패: {balances['error']}")
-                return {}
-            return {b["currency"]: b for b in balances}
+                return None
+            if not isinstance(balances, list):
+                self.last_balance_error = f"unexpected payload {balances}"
+                print(f"[ERROR] 잔고 조회 실패: unexpected payload {balances}")
+                return None
+            return {b["currency"]: b for b in balances if isinstance(b, dict) and b.get("currency")}
         except Exception as e:
+            self.last_balance_error = str(e)
             err_str = str(e)
             if "429" in err_str or "rate" in err_str.lower() or "제한" in err_str:
                 print(f"[ERROR] 잔고 조회 실패: API rate limit")
@@ -67,9 +233,6 @@ class UpbitClient:
             print(f"[DRY_RUN] 매수: {symbol} 가격={price} 금액={amount_krw}원")
             return fake_id
         try:
-            import json
-            import math
-            import requests
             qty = math.floor(amount_krw / price * 10000) / 10000  # 내림 처리
             actual_total = qty * price
             if actual_total < 5500:
@@ -86,22 +249,23 @@ class UpbitClient:
                 "price": str(price),
                 "ord_type": "limit",
             }
-            headers = self._upbit._request_headers(data)
-            headers["Accept"] = "application/json"
-            headers["Content-Type"] = "application/json"
-            resp = requests.post(
+            response, result, response_text = self._request_private_json(
+                "POST",
                 "https://api.upbit.com/v1/orders",
-                headers=headers,
-                data=json.dumps(data),
-                timeout=10,
+                data,
+                context=f"매수 주문 {symbol}",
             )
-            try:
-                result = resp.json()
-            except Exception:
-                print(f"[ERROR] 매수 주문 응답 파싱 실패 {symbol}: HTTP {resp.status_code} {resp.text[:200]}")
+            if response is None:
+                print(f"[ERROR] 매수 주문 실패 {symbol}: empty response")
                 return None
-            if resp.status_code >= 400:
-                print(f"[ERROR] 매수 주문 거절 {symbol}: HTTP {resp.status_code} {result}")
+            if self._is_rate_limit_response(response.status_code, result, response_text):
+                print(f"[ERROR] 매수 주문 실패 {symbol}: API rate limit")
+                return None
+            if result is None and response.status_code < 400:
+                print(f"[ERROR] 매수 주문 응답 파싱 실패 {symbol}: HTTP {response.status_code} {response_text}")
+                return None
+            if response.status_code >= 400:
+                print(f"[ERROR] 매수 주문 거절 {symbol}: HTTP {response.status_code} {result or response_text}")
                 return None
             if not result:
                 return None
@@ -121,7 +285,31 @@ class UpbitClient:
             print(f"[DRY_RUN] 매도: {symbol} 가격={price} 수량={qty}")
             return fake_id
         try:
-            result = self._upbit.sell_limit_order(symbol, price, qty)
+            data = {
+                "market": symbol,
+                "side": "ask",
+                "volume": str(qty),
+                "price": str(price),
+                "ord_type": "limit",
+            }
+            response, result, response_text = self._request_private_json(
+                "POST",
+                "https://api.upbit.com/v1/orders",
+                data,
+                context=f"매도 주문 {symbol}",
+            )
+            if response is None:
+                print(f"[ERROR] 매도 주문 실패 {symbol}: empty response")
+                return None
+            if self._is_rate_limit_response(response.status_code, result, response_text):
+                print(f"[ERROR] 매도 주문 실패 {symbol}: API rate limit")
+                return None
+            if result is None and response.status_code < 400:
+                print(f"[ERROR] 매도 주문 응답 파싱 실패 {symbol}: HTTP {response.status_code} {response_text}")
+                return None
+            if response.status_code >= 400:
+                print(f"[ERROR] 매도 주문 거절 {symbol}: HTTP {response.status_code} {result or response_text}")
+                return None
             if not result:
                 return None
             order_id = result.get("uuid")

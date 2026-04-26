@@ -26,6 +26,7 @@ class BithumbClient:
         )
         self._symbols: list[str] = []
         self.last_order_error: Optional[str] = None
+        self.last_balance_error: Optional[str] = None
 
     def load_symbols(self) -> list[str]:
         try:
@@ -63,6 +64,7 @@ class BithumbClient:
         return 0.0
 
     def get_balances(self) -> dict:
+        self.last_balance_error = None
         try:
             result = {}
             balances = self._bithumb.get_balances()
@@ -100,12 +102,14 @@ class BithumbClient:
                         result[currency_key] = {
                             "currency": currency_key,
                             "balance": str(bal),
+                            "locked": "0",
                         }
                 for currency_key, bal in prefixed_totals.items():
                     if bal > 0:
                         result[currency_key] = {
                             "currency": currency_key,
                             "balance": str(bal),
+                            "locked": "0",
                         }
                 return result
 
@@ -125,7 +129,8 @@ class BithumbClient:
                     if not currency:
                         continue
 
-                    bal = 0.0
+                    available = 0.0
+                    locked = 0.0
                     try:
                         available = float(
                             row.get("available")
@@ -138,15 +143,21 @@ class BithumbClient:
                             or row.get("in_use")
                             or 0
                         )
-                        bal = available + locked
                     except (AttributeError, TypeError, ValueError):
-                        bal = 0.0
+                        available = 0.0
+                        locked = 0.0
+
+                    bal = available + locked
 
                     if bal > 0:
                         currency_key = str(currency).upper()
                         result[currency_key] = {
                             "currency": currency_key,
-                            "balance": str(bal),
+                            "balance": str(available),
+                            "locked": str(locked),
+                            "avg_buy_price": str(row.get("avg_buy_price") or 0),
+                            "avg_buy_price_modified": bool(row.get("avg_buy_price_modified", False)),
+                            "unit_currency": str(row.get("unit_currency") or "KRW"),
                         }
 
                 if not result:
@@ -157,15 +168,18 @@ class BithumbClient:
             return {}
         except Exception as e:
             if self._is_rate_limit_error(e):
+                self.last_balance_error = str(e)
                 print(f"[BITHUMB][WARN] 잔고 조회 Rate Limit — 30초 대기 후 재시도")
                 time.sleep(30)
                 try:
                     return self.get_balances()
                 except Exception as e2:
+                    self.last_balance_error = str(e2)
                     print(f"[BITHUMB][ERROR] 잔고 조회 재시도 실패: {e2}")
-                    return {}
+                    return None
+            self.last_balance_error = str(e)
             print(f"[BITHUMB][ERROR] 잔고 조회 실패: {e}")
-            return {}
+            return None
 
     def get_current_price(self, symbol: str) -> Optional[float]:
         try:

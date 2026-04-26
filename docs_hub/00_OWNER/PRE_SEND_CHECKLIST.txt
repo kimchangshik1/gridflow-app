@@ -1,0 +1,11 @@
+PRE-SEND CHECKLIST
+
+[ ] integration tests rerun and result recorded
+[ ] release tarball exists: release/gridflow_buyer_final_freeze_20260425.tar.gz
+[ ] checksum confirmed against release/SHA256SUMS.txt
+[ ] release manifest confirmed
+[ ] handoff dry run note confirmed
+[ ] send-now scope rechecked
+[ ] request-only scope rechecked
+[ ] not-included scope rechecked
+[ ] final buyer note and attachment list rechecked

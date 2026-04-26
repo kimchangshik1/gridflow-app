@@ -1,0 +1,41 @@
+DOCS HUB INDEX
+
+Folder roles
+- 00_OWNER: owner entry, send policy, status snapshot, pre-send checks
+- 10_PRODUCT: core buyer-facing product docs
+- 20_INSTALL: deployment, runbook, bootstrap, install reference
+- 30_SECURITY: auth, storage, monitor boundary, secret hygiene
+- 40_EVIDENCE: evidence summaries and release proof docs
+- 50_SALES: one-pager, demo, pricing, buyer communication docs
+- 90_ARCHIVE: closeout, freeze, private handoff, release history
+
+Frequently opened files
+- 00_OWNER/GRIDFLOW_OWNER_COCKPIT.txt
+- 00_OWNER/DOCS_HUB_INDEX.txt
+- 00_OWNER/PRE_SEND_CHECKLIST.txt
+- 10_PRODUCT/README.md
+- 10_PRODUCT/KNOWN_LIMITATIONS.md
+- 20_INSTALL/DEPLOYMENT.md
+- 20_INSTALL/BOOTSTRAP_RUNBOOK.txt
+- 30_SECURITY/SECURITY.md
+- 40_EVIDENCE/GRIDFLOW_RELEASE_EVIDENCE.txt
+- 50_SALES/one_pager.md
+
+Open in this order for a sales/send decision
+1. 00_OWNER/GRIDFLOW_OWNER_COCKPIT.txt
+2. 10_PRODUCT/README.md
+3. 10_PRODUCT/KNOWN_LIMITATIONS.md
+4. 20_INSTALL/DEPLOYMENT.md
+5. 30_SECURITY/SECURITY.md
+6. 50_SALES/one_pager.md
+7. 50_SALES/demo_script.md
+8. 40_EVIDENCE/GRIDFLOW_RELEASE_EVIDENCE.txt
+9. 00_OWNER/DELIVERY_POLICY.md
+10. 00_OWNER/DELIVERY_MANIFEST.md
+
+Location map
+- install docs: docs_hub/20_INSTALL/
+- security docs: docs_hub/30_SECURITY/
+- evidence docs: docs_hub/40_EVIDENCE/
+- sales docs: docs_hub/50_SALES/
+- release/freeze history: docs_hub/90_ARCHIVE/

@@ -214,10 +214,18 @@ def get_ranked_symbols(request: Request, response: Response, user=Depends(get_cu
 def get_balances(user=Depends(get_current_user)):
     bc = get_user_bithumb_client(user["user_id"])
     if not bc:
-        return {"krw_available": 0, "no_key": True}
+        return {"balances": {}, "krw_available": 0, "no_key": True}
 
-    krw = bc.get_krw_balance()
-    return {"krw_available": krw}
+    balances = bc.get_balances()
+    if balances is None:
+        return {
+            "balances": {},
+            "krw_available": 0,
+            "source_error": bc.last_balance_error or "bithumb_balance_fetch_failed",
+        }
+
+    krw = float(((balances.get("KRW") or {}).get("balance") or 0) if isinstance(balances, dict) else 0)
+    return {"balances": balances, "krw_available": krw}
 
 
 @router.get("/positions")
@@ -233,103 +241,42 @@ def get_positions(user=Depends(get_current_user)):
         price_data = {}
 
     balances = bc.get_balances()
+    if balances is None:
+        return {
+            "positions": [],
+            "source_error": bc.last_balance_error or "bithumb_balance_fetch_failed",
+        }
     positions = []
 
     for currency, b in balances.items():
         if currency == "KRW":
             continue
 
-        qty = float(b.get("balance", 0))
+        qty = float(b.get("balance", 0)) + float(b.get("locked", 0))
         if qty <= 0:
             continue
 
         ticker_data = price_data.get(currency, {})
         current_price = float(ticker_data.get("closing_price", 0))
+        avg_price = float(b.get("avg_buy_price", 0) or 0)
         eval_amount = qty * current_price
+        invest_amount = qty * avg_price if avg_price > 0 else eval_amount
+        pnl_amount = eval_amount - invest_amount
+        pnl_pct = (pnl_amount / invest_amount * 100) if invest_amount > 0 else 0
 
         positions.append({
             "symbol": f"KRW-{currency}",
             "currency": currency,
             "korean_name": currency,
             "qty": qty,
-            "avg_price": current_price,
+            "avg_price": avg_price,
             "current_price": current_price,
-            "pnl_pct": 0,
+            "pnl_pct": round(pnl_pct, 2),
             "eval_amount": round(eval_amount, 0),
-            "invest_amount": round(eval_amount, 0),
-            "pnl_amount": 0,
+            "invest_amount": round(invest_amount, 0),
+            "pnl_amount": round(pnl_amount, 0),
             "orders": [],
         })
-
-    try:
-        import psycopg2 as pg2
-
-        conn2 = pg2.connect(DB_URL)
-        cur2 = conn2.cursor()
-        cur2.execute(
-            '''
-            SELECT go.symbol,
-                   SUM(go.amount_krw) as buy_amt,
-                   SUM(go.qty) as qty
-            FROM grid_orders go
-            JOIN grid_strategies gs ON gs.id = go.strategy_id
-            WHERE go.user_id = %s
-              AND go.status IN ('BUY_FILLED', 'SELL_ORDERED')
-              AND gs.exchange = 'bithumb'
-            GROUP BY go.symbol
-            ''',
-            (user["user_id"],)
-        )
-        grid_rows = cur2.fetchall()
-        cur2.close()
-        conn2.close()
-
-        for grow in grid_rows:
-            gsymbol, gbuy_amt, gqty = grow
-            gqty = float(gqty or 0)
-            gbuy_amt = float(gbuy_amt or 0)
-
-            if gqty <= 0.0001:
-                continue
-
-            gavg = gbuy_amt / gqty
-            coin = gsymbol.replace("KRW-", "")
-            gcurrent = float(price_data.get(coin, {}).get("closing_price", 0))
-            geval = gqty * gcurrent
-            ginvest = gqty * gavg
-            gpnl_pct = (gcurrent - gavg) / gavg * 100 if gavg > 0 else 0
-
-            existing = next((p for p in positions if p["symbol"] == gsymbol), None)
-            if existing:
-                # 빗썸 실잔고가 이미 있으면 그 포지션을 기준으로 보고,
-                # DB grid 집계는 중복 합산하지 않는다.
-                existing["grid"] = True
-                if not existing.get("avg_price") or existing["avg_price"] <= 0:
-                    existing["avg_price"] = round(gavg, 2)
-                    existing["invest_amount"] = round(ginvest, 0)
-                    existing["pnl_amount"] = round(existing["eval_amount"] - existing["invest_amount"], 0)
-                    existing["pnl_pct"] = round(
-                        (existing["current_price"] - existing["avg_price"]) / existing["avg_price"] * 100
-                        if existing["avg_price"] > 0 else 0,
-                        2
-                    )
-            else:
-                positions.append({
-                    "symbol": gsymbol,
-                    "currency": coin,
-                    "korean_name": coin,
-                    "qty": round(gqty, 4),
-                    "avg_price": round(gavg, 2),
-                    "current_price": gcurrent,
-                    "pnl_pct": round(gpnl_pct, 2),
-                    "eval_amount": round(geval, 0),
-                    "invest_amount": round(ginvest, 0),
-                    "pnl_amount": round(geval - ginvest, 0),
-                    "orders": [],
-                    "grid": True
-                })
-    except Exception as e:
-        print(f"[GRID][BITHUMB] 포지션 합산 오류: {e}")
 
     positions.sort(key=lambda x: x["eval_amount"], reverse=True)
     return {"positions": positions}

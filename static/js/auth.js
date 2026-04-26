@@ -3,8 +3,245 @@
   'use strict';
 
   var USERNAME_KEY = 'saved_username';
+  var REMEMBER_MARKER_KEY = 'gridflow_auth_remember_marker';
+  var SESSION_MARKER_KEY = 'gridflow_auth_session_marker';
   var STATE_CHANGE_HEADER_NAME = 'X-GridFlow-State-Change';
   var STATE_CHANGE_HEADER_VALUE = '1';
+  window.__authClientStateVersion = Number(window.__authClientStateVersion || 0);
+  window.__authCurrentIdentityKey = window.__authCurrentIdentityKey || '';
+  window.__authLogoutRequest = window.__authLogoutRequest || null;
+
+  function readStorage(storage, key) {
+    try {
+      return storage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeStorage(storage, key, value) {
+    try {
+      storage.setItem(key, value);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function removeStorage(storage, key) {
+    try {
+      storage.removeItem(key);
+    } catch (e) {}
+  }
+
+  function parseMarker(raw) {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function buildMarker(username, mode) {
+    return JSON.stringify({
+      username: username || '',
+      mode: mode,
+      created_at: new Date().toISOString()
+    });
+  }
+
+  function buildIdentityKey(user) {
+    if (!user) return '';
+    var userId = user.user_id != null ? user.user_id : user.id != null ? user.id : '';
+    return [
+      String(userId),
+      String(user.username || ''),
+      user.is_admin ? 'admin' : 'user',
+      user.is_guest ? 'guest' : 'member',
+      user.is_dry_run ? 'dry' : 'live'
+    ].join('|');
+  }
+
+  function bumpClientStateVersion() {
+    window.__authClientStateVersion = Number(window.__authClientStateVersion || 0) + 1;
+    return window.__authClientStateVersion;
+  }
+
+  function getClientAuthContext() {
+    return {
+      version: Number(window.__authClientStateVersion || 0),
+      identityKey: String(window.__authCurrentIdentityKey || '')
+    };
+  }
+
+  function isStaleClientAuthContext(context) {
+    if (!context) return true;
+    var current = getClientAuthContext();
+    return current.version !== Number(context.version || 0) || current.identityKey !== String(context.identityKey || '');
+  }
+
+  window.__authGetClientContext = getClientAuthContext;
+  window.__authIsStaleClientContext = isStaleClientAuthContext;
+
+  function setText(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setHtml(id, html) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+
+  function hideElement(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+
+  function clearStrategyUiState() {
+    window._strategies = [];
+    window._dcaStrategyCache = {};
+    window._rebalStrategyCache = {};
+
+    if (typeof window.__strategyDeepLinkCancelRetry === 'function') {
+      window.__strategyDeepLinkCancelRetry();
+    }
+    if (typeof window.__strategyDeepLinkClearHighlight === 'function' && window.__strategyDeepLinkState && window.__strategyDeepLinkState.activeCard) {
+      window.__strategyDeepLinkClearHighlight(window.__strategyDeepLinkState.activeCard);
+    }
+    if (window.__strategyDeepLinkState) {
+      if (window.__strategyDeepLinkState.highlightTimer) {
+        clearTimeout(window.__strategyDeepLinkState.highlightTimer);
+        window.__strategyDeepLinkState.highlightTimer = 0;
+      }
+      window.__strategyDeepLinkState.pending = null;
+      window.__strategyDeepLinkState.pendingRetryFrame = 0;
+      window.__strategyDeepLinkState.activeCard = null;
+    }
+
+    setHtml('grid-strategy-list', '');
+    setHtml('dca-strategy-list', '');
+    setHtml('rebal-strategy-list', '');
+  }
+
+  function clearSettingsUiState() {
+    setText('bot-status', '-');
+    setText('cur-upbit-access', '-');
+    setText('cur-upbit-secret', '-');
+    setText('cur-bithumb-access', '-');
+    setText('cur-bithumb-secret', '-');
+    setText('set-current-user', '-');
+    setText('set-user-role', '-');
+    setText('set-active-strategies', '-');
+  }
+
+  function clearAdminUiState() {
+    window._adminUserData = [];
+    setHtml('admin-user-table-body', '');
+    setText('admin-panel-msg', '');
+    setText('admin-stat-total', '-');
+    setText('admin-stat-active', '-');
+    setText('admin-stat-api', '-');
+    setText('admin-stat-recent', '-');
+    setText('admin-stat-dry', '-');
+  }
+
+  function resetClientUserState(reason) {
+    bumpClientStateVersion();
+    window.__authCurrentIdentityKey = '';
+    window._currentUser = null;
+    window.isGuest = false;
+    window.__guestState = null;
+    if (typeof _currentUser !== 'undefined') {
+      _currentUser = null;
+    }
+
+    if (typeof window._clearGuestExpireTimer === 'function') {
+      window._clearGuestExpireTimer();
+    }
+
+    clearStrategyUiState();
+    clearSettingsUiState();
+    clearAdminUiState();
+
+    hideElement('guest-banner');
+    setText('login-user-label', '');
+    setText('gf-uname', '-');
+    setText('login-err', '');
+
+    if (typeof window.gfClose === 'function') {
+      window.gfClose();
+    }
+    if (typeof window.__homeResetDashboardState === 'function') {
+      window.__homeResetDashboardState(reason || 'identity-reset');
+    }
+    if (typeof window.syncGuestHomeBanner === 'function') {
+      window.syncGuestHomeBanner();
+    }
+    if (typeof applyAdminTabVisibility === 'function') {
+      applyAdminTabVisibility();
+    }
+    if (typeof applyInlineAuthUi === 'function') {
+      applyInlineAuthUi();
+    }
+  }
+
+  window.__resetClientUserState = resetClientUserState;
+
+  async function awaitLogoutRequestIfNeeded() {
+    if (!window.__authLogoutRequest) return;
+    try {
+      await window.__authLogoutRequest;
+    } catch (e) {}
+  }
+
+  function clearLoginPersistenceMarkers() {
+    removeStorage(window.localStorage, REMEMBER_MARKER_KEY);
+    removeStorage(window.sessionStorage, SESSION_MARKER_KEY);
+  }
+
+  function persistLoginPersistence(username, rememberMe) {
+    var markerValue = buildMarker(username, 'remember');
+    if (rememberMe) {
+      writeStorage(window.localStorage, REMEMBER_MARKER_KEY, markerValue);
+      removeStorage(window.sessionStorage, SESSION_MARKER_KEY);
+      return;
+    }
+    clearLoginPersistenceMarkers();
+  }
+
+  function markerMatchesUser(marker, user) {
+    if (!marker) return false;
+    if (!user || !user.username) return true;
+    if (!marker.username) return false;
+    return marker.username === user.username;
+  }
+
+  function isBootstrapLoginAllowed(user) {
+    if (!user || user.is_guest) return true;
+    var rememberMarker = parseMarker(readStorage(window.localStorage, REMEMBER_MARKER_KEY));
+    if (markerMatchesUser(rememberMarker, user)) return true;
+    return false;
+  }
+
+  async function rejectUnexpectedRestoredSession(user) {
+    if (isBootstrapLoginAllowed(user)) return false;
+    clearLoginPersistenceMarkers();
+    syncGuestClientState(null);
+    try {
+      await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: buildStateChangeHeaders({}, 'POST')
+      });
+    } catch (e) {
+      console.warn('[AUTH] restored session logout 오류:', e);
+    }
+    window.showLogin();
+    if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
+    return true;
+  }
 
   function isStateChangeMethod(method) {
     var normalized = (method || 'GET').toUpperCase();
@@ -21,6 +258,12 @@
   window.buildStateChangeHeaders = buildStateChangeHeaders;
 
   function syncGuestClientState(user) {
+    var nextIdentityKey = buildIdentityKey(user);
+    var prevIdentityKey = window.__authCurrentIdentityKey || '';
+    if (prevIdentityKey !== nextIdentityKey) {
+      resetClientUserState('identity-change');
+    }
+    window.__authCurrentIdentityKey = nextIdentityKey;
     window._currentUser = user || null;
     window.isGuest = !!(user && user.is_guest);
     if (window.isGuest) {
@@ -51,6 +294,9 @@
     var adminTab = document.getElementById('tab-admin');
     if (adminTab) adminTab.style.display = _currentUser && _currentUser.is_admin ? '' : 'none';
     var lbl = document.getElementById('login-user-label');
+    var gfUname = document.getElementById('gf-uname');
+    if (lbl && !_currentUser) lbl.textContent = '';
+    if (gfUname && !_currentUser) gfUname.textContent = '-';
     if (lbl && _currentUser) {
       var adminMark = _currentUser.is_admin ? ' 👑' : '';
       var modeBadge = '';
@@ -62,6 +308,7 @@
         modeBadge = ' <span style="font-size:10px;font-weight:700;color:#10B981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:1px 6px;vertical-align:middle">LIVE</span>';
       }
       lbl.innerHTML = _currentUser.username + adminMark + modeBadge;
+      if (gfUname) gfUname.textContent = lbl.textContent.trim() || (_currentUser.username || '-');
     }
   };
 
@@ -78,10 +325,12 @@
 
   window.checkAuth = async function() {
     try {
+      await awaitLogoutRequestIfNeeded();
       var r = await fetch('/auth/me', {
         credentials: 'same-origin'
       });
       if (r.status === 401) {
+        clearLoginPersistenceMarkers();
         syncGuestClientState(null);
         window.showLogin();
         if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
@@ -92,7 +341,11 @@
         if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
         return false;
       }
-      syncGuestClientState(await r.json());
+      var user = await r.json();
+      if (await rejectUnexpectedRestoredSession(user)) {
+        return false;
+      }
+      syncGuestClientState(user);
       window.hideLogin();
       if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
       return true;
@@ -107,26 +360,34 @@
   window.doLogin = async function() {
     var u = document.getElementById('login-username');
     var p = document.getElementById('login-password');
+    var rememberInput = document.getElementById('login-remember');
     var errEl = document.getElementById('login-err');
     if (!u || !p) return;
     var username = u.value.trim();
     var password = p.value;
+    var rememberMe = !!(rememberInput && rememberInput.checked);
     if (!username || !password) {
       if (errEl) errEl.textContent = '아이디와 비밀번호를 입력하세요';
       return;
     }
     try {
+      await awaitLogoutRequestIfNeeded();
       var r = await fetch('/auth/login', {
         method: 'POST',
         credentials: 'same-origin',
         headers: buildStateChangeHeaders({ 'Content-Type': 'application/json' }, 'POST'),
-        body: JSON.stringify({ username: username, password: password })
+        body: JSON.stringify({
+          username: username,
+          password: password,
+          remember_me: rememberMe
+        })
       });
       var d = await r.json();
       if (r.ok && d.success) {
         try {
           if (u && u.value.trim()) localStorage.setItem(USERNAME_KEY, u.value.trim());
         } catch(e) {}
+        persistLoginPersistence(d.username || username, rememberMe);
         syncGuestClientState(d);
         var _guestBanner = document.getElementById('guest-banner');
         if (_guestBanner) _guestBanner.style.display = 'none';
@@ -186,36 +447,32 @@
     }, 300);
   };
 
-  window.doLogout = function() {
+  window.doLogout = async function() {
     if (!confirm('로그아웃 하시겠습니까?')) return;
     var isGuestLogout = !!(window.isGuest || (window._currentUser && window._currentUser.is_guest));
 
-    // 1. 프론트 상태 즉시 초기화 (서버 응답 대기 없이)
-    window._currentUser = null;
-    window.isGuest = false;
+    // 1. 프론트 상태 즉시 초기화
+    clearLoginPersistenceMarkers();
+    resetClientUserState('logout');
 
     // 2. UI 즉시 전환
-    var banner = document.getElementById('guest-banner');
-    if (banner) banner.style.display = 'none';
-    var uname = document.getElementById('login-user-label');
-    if (uname) uname.textContent = '';
-    var gfUname = document.getElementById('gf-uname');
-    if (gfUname) gfUname.textContent = '';
     var overlay = document.getElementById('login-overlay');
     if (overlay) overlay.style.display = 'flex';
     if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
 
-    // 3. 게스트 만료 타이머 정리
-    window._clearGuestExpireTimer();
-
-    // 4. 서버 호출 fire-and-forget (응답 대기 없음)
+    // 3. 서버 로그아웃을 await 해서 뒤늦은 delete-cookie가 다음 로그인 세션을 덮어쓰지 않게 한다.
     try {
-      fetch(isGuestLogout ? '/auth/guest/logout' : '/auth/logout', {
+      var logoutRequest = fetch(isGuestLogout ? '/auth/guest/logout' : '/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
         headers: buildStateChangeHeaders({}, 'POST')
       }).catch(function(){});
+      window.__authLogoutRequest = logoutRequest;
+      await logoutRequest;
     } catch(e) {}
+    finally {
+      window.__authLogoutRequest = null;
+    }
   };
 
   // ── 게스트 만료 타이머 ──────────────────────────────────────────
@@ -236,15 +493,8 @@
     window._guestExpireTimerId = setTimeout(function() {
       window._guestExpireTimerId = null;
       // 상태 즉시 초기화
-      window._currentUser = null;
-      window.isGuest = false;
+      resetClientUserState('guest-expired');
       // UI 즉시 전환
-      var banner = document.getElementById('guest-banner');
-      if (banner) banner.style.display = 'none';
-      var uname = document.getElementById('login-user-label');
-      if (uname) uname.textContent = '';
-      var gfUname = document.getElementById('gf-uname');
-      if (gfUname) gfUname.textContent = '';
       var overlay = document.getElementById('login-overlay');
       if (overlay) overlay.style.display = 'flex';
       if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
@@ -336,12 +586,9 @@
 
     var usernameInput = document.getElementById('login-username');
     var passwordInput = document.getElementById('login-password');
-    var rememberInput = document.getElementById('login-remember');
-
     try {
       var savedUsername = localStorage.getItem(USERNAME_KEY) || '';
       if (usernameInput && savedUsername) usernameInput.value = savedUsername;
-      if (rememberInput) rememberInput.checked = false;
     } catch(e) {}
 
     if (usernameInput) usernameInput.addEventListener('keydown', function(e) {
@@ -402,21 +649,14 @@ window.enterGuestMode = async function() {
 };
 
 window.showLoginFromGuest = function() {
-  window.isGuest = false;
-  if (typeof window._clearGuestExpireTimer === 'function') {
-    window._clearGuestExpireTimer();
+  if (typeof window.__resetClientUserState === 'function') {
+    window.__resetClientUserState('show-login-from-guest');
+  } else {
+    window.isGuest = false;
   }
-  if (typeof window.syncGuestHomeBanner === 'function') {
-    window.syncGuestHomeBanner();
-  }
-  var banner = document.getElementById('guest-banner');
-  if (banner) banner.style.display = 'none';
-  var uname = document.getElementById('login-user-label');
-  if (uname) uname.textContent = '';
-  var gfUname = document.getElementById('gf-uname');
-  if (gfUname) gfUname.textContent = '';
   var overlay = document.getElementById('login-overlay');
   if (overlay) overlay.style.display = 'flex';
+  if (typeof applyInlineAuthUi === 'function') applyInlineAuthUi();
 };
 
 window.guestBlock = function(action) {

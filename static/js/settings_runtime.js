@@ -1,22 +1,51 @@
 'use strict';
 
+function getSettingsAuthContext() {
+  if (typeof window.__authGetClientContext === 'function') {
+    return window.__authGetClientContext();
+  }
+  return {
+    version: Number(window.__authClientStateVersion || 0),
+    identityKey: String(window.__authCurrentIdentityKey || '')
+  };
+}
+
+function isSettingsAuthContextStale(context) {
+  if (typeof window.__authIsStaleClientContext === 'function') {
+    return window.__authIsStaleClientContext(context);
+  }
+  var current = getSettingsAuthContext();
+  return !context || current.version !== context.version || current.identityKey !== context.identityKey;
+}
+
 window.fetchStatus = async function fetchStatus() {
+  var authContext = getSettingsAuthContext();
   const r = await authFetch('/config/status');
+  if (!r || !r.ok || isSettingsAuthContextStale(authContext) || !window._currentUser) return;
   const d = await r.json();
+  if (isSettingsAuthContextStale(authContext) || !window._currentUser) return;
   const el = document.getElementById('bot-status');
+  if (!el) return;
   applyLang();
   el.textContent = d.bot_status === 'active' ? (_lang === 'ko' ? '● 실행 중' : '● Running') : (_lang === 'ko' ? '● 중지됨' : '● Stopped');
   el.style.color = d.bot_status === 'active' ? '#4ade80' : '#f87171';
 };
 
 window.fetchCurrentKeys = async function fetchCurrentKeys() {
+  var authContext = getSettingsAuthContext();
   const r = await authFetch('/config/keys');
+  if (!r || !r.ok || isSettingsAuthContextStale(authContext) || !window._currentUser) return;
   const d = await r.json();
+  if (isSettingsAuthContextStale(authContext) || !window._currentUser) return;
   const noKey = _lang === 'ko' ? '미설정' : 'Not set';
-  document.getElementById('cur-upbit-access').textContent = d.upbit_access_key || noKey;
-  document.getElementById('cur-upbit-secret').textContent = d.upbit_secret_key || noKey;
-  document.getElementById('cur-bithumb-access').textContent = d.bithumb_access_key || noKey;
-  document.getElementById('cur-bithumb-secret').textContent = d.bithumb_secret_key || noKey;
+  var upbitAccess = document.getElementById('cur-upbit-access');
+  var upbitSecret = document.getElementById('cur-upbit-secret');
+  var bithumbAccess = document.getElementById('cur-bithumb-access');
+  var bithumbSecret = document.getElementById('cur-bithumb-secret');
+  if (upbitAccess) upbitAccess.textContent = d.upbit_access_key || noKey;
+  if (upbitSecret) upbitSecret.textContent = d.upbit_secret_key || noKey;
+  if (bithumbAccess) bithumbAccess.textContent = d.bithumb_access_key || noKey;
+  if (bithumbSecret) bithumbSecret.textContent = d.bithumb_secret_key || noKey;
 };
 
 window.switchSettings = function switchSettings() {

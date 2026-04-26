@@ -7,6 +7,7 @@ from typing import Optional
 from app.core.config import DB_URL
 
 _DEFAULT_SANDBOX_KRW_BALANCE = 10_000_000
+_DEFAULT_SESSION_TTL = timedelta(hours=1)
 
 
 def _get_user_child_tables(cur) -> tuple[str, ...]:
@@ -62,7 +63,7 @@ def verify_login(username: str, password: str) -> Optional[dict]:
 def create_session(user: dict) -> str:
     """세션 토큰 생성 및 DB 저장"""
     token = secrets.token_hex(32)
-    ttl = user.get("session_ttl") or timedelta(hours=24)
+    ttl = user.get("session_ttl") or _DEFAULT_SESSION_TTL
     try:
         conn = get_conn()
         cur = conn.cursor()
