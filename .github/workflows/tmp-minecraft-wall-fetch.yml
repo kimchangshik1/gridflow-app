@@ -1,0 +1,33 @@
+name: Temporary Minecraft wall source fetch
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-wall-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fetch dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests playwright
+          python -m playwright install --with-deps chromium
+      - name: Fetch public schematic sources
+        run: python .github/scripts/fetch_wall_sources.py
+      - name: Upload fetched files
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-wall-source-fetch
+          path: wall-source-artifact
+          if-no-files-found: error
+          retention-days: 1
