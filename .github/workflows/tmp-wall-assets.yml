@@ -1,0 +1,60 @@
+name: Temporary wall asset audit
+on:
+  push:
+    branches: [tmp/minecraft-wall-source-fetch]
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch open blueprint pack
+        run: |
+          git clone --depth 1 https://github.com/Kirotsuky/Community-Blueprint-Pack.git source-pack
+          mkdir -p out
+          cp source-pack/LICENSE out/LICENSE-Kirotsuky-BSD-2-Clause.txt
+          cp -r "source-pack/Community Blueprint Pack/Themed Structures/Medieval" out/Medieval
+      - name: Extract embedded thumbnails and metadata
+        run: |
+          python - <<'PY'
+          import json, pathlib, struct
+          root=pathlib.Path('out/Medieval')
+          prev=pathlib.Path('out/previews'); prev.mkdir(parents=True,exist_ok=True)
+          items=[]
+          for p in sorted(root.rglob('*.bp')):
+              data=p.read_bytes()
+              item={'file':str(p.relative_to(root)),'bytes':len(data)}
+              # Header strings usually include Name/Author and embedded PNG thumbnail.
+              sig=b'\x89PNG\r\n\x1a\n'; i=data.find(sig)
+              if i>=0:
+                  pos=i+8
+                  while pos+12<=len(data):
+                      n=struct.unpack('>I',data[pos:pos+4])[0]
+                      typ=data[pos+4:pos+8]
+                      pos += 12+n
+                      if typ==b'IEND':
+                          png=data[i:pos]
+                          out=prev/(p.stem+'.png')
+                          # avoid collisions from nested dirs
+                          if out.exists(): out=prev/(p.parent.name+'__'+p.stem+'.png')
+                          out.write_bytes(png)
+                          item['thumbnail']=out.name
+                          break
+              # pull readable ASCII strings for quick metadata inspection
+              strings=[]; cur=[]
+              for b in data[:4096]:
+                  if 32<=b<127: cur.append(chr(b))
+                  else:
+                      if len(cur)>=4: strings.append(''.join(cur))
+                      cur=[]
+              item['header_strings']=strings[:20]
+              items.append(item)
+          pathlib.Path('out/inventory.json').write_text(json.dumps(items,indent=2,ensure_ascii=False))
+          print('blueprints',len(items),'thumbnails',sum('thumbnail' in x for x in items))
+          PY
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: medieval-blueprint-audit
+          path: out
+          retention-days: 1
